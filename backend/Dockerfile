@@ -1,5 +1,5 @@
 # ── Stage 1: build ───────────────────────────────────────────────────────────
-FROM rust:1.94-slim AS builder
+FROM rust:1.85-slim AS builder
 
 WORKDIR /app
 
@@ -44,7 +44,6 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/api /usr/local/bin/api

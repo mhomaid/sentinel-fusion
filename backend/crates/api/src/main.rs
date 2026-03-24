@@ -34,8 +34,8 @@ async fn main() -> Result<()> {
         .parse()
         .expect("PORT must be a valid u16");
 
-    let pool = db::connect(&database_url).await?;
-    tracing::info!("database connection established");
+    let pool = db::connect(&database_url)?;
+    tracing::info!("database pool initialised (lazy connect)");
 
     // ── SSE broadcast channel ────────────────────────────────────────────────
     let sse_tx = sse::channel();

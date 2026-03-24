@@ -5,10 +5,9 @@ use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
-pub async fn connect(database_url: &str) -> Result<PgPool> {
+pub fn connect(database_url: &str) -> Result<PgPool> {
     let pool = PgPoolOptions::new()
         .max_connections(10)
-        .connect(database_url)
-        .await?;
+        .connect_lazy(database_url)?;
     Ok(pool)
 }

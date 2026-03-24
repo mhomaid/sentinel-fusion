@@ -8,9 +8,6 @@ dockerfilePath = "backend/Dockerfile"
 [deploy]
 startCommand = "/usr/local/bin/api"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
-[[services]]
-name = "api"
