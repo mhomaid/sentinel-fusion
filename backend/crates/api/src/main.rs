@@ -132,6 +132,25 @@ async fn main() -> Result<()> {
         });
     }
 
+    // ── Auto-seed task (every 4 min) ─────────────────────────────────────────
+    // Keeps at least one GCC zone active so the dashboard is never empty.
+    {
+        let seed_pool = pool.clone();
+        tokio::spawn(async move {
+            // Initial seed on startup so the map is populated immediately.
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            routes::demo::inject_burst(&seed_pool, routes::demo::GCC_ZONES).await;
+            tracing::info!("auto-seed: initial burst complete");
+
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(240));
+            loop {
+                interval.tick().await;
+                routes::demo::inject_random_zone(&seed_pool).await;
+                tracing::info!("auto-seed: zone refreshed");
+            }
+        });
+    }
+
     // ── Stats broadcast task (every 5s) ─────────────────────────────────────
     {
         let tx      = sse_tx.clone();
@@ -173,6 +192,7 @@ async fn main() -> Result<()> {
         .route("/api/health",        get(routes::health::handler))
         .route("/api/stats",         get(routes::stats::handler))
         .route("/api/events",        post(routes::events::ingest))
+        .route("/api/demo/start",    post(routes::demo::start))
         .route("/api/incidents",     get(routes::incidents::list))
         .route("/api/incidents/:id", get(routes::incidents::get_by_id))
         .route("/api/stream",        get(routes::stream::handler))
