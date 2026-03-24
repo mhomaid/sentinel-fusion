@@ -1,5 +1,6 @@
 mod middleware;
 mod routes;
+mod sse;
 mod state;
 
 use std::sync::Arc;
@@ -10,10 +11,12 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::{Duration, Utc};
 use fusion::engine::{FusionConfig, FusionMetrics};
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+use crate::sse::SseEvent;
 use state::AppState;
 
 #[tokio::main]
@@ -25,8 +28,7 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
@@ -35,6 +37,10 @@ async fn main() -> Result<()> {
     let pool = db::connect(&database_url).await?;
     tracing::info!("database connection established");
 
+    // ── SSE broadcast channel ────────────────────────────────────────────────
+    let sse_tx = sse::channel();
+
+    // ── Fusion engine ────────────────────────────────────────────────────────
     let fusion_metrics = Arc::new(FusionMetrics::default());
 
     let config = FusionConfig {
@@ -57,20 +63,92 @@ async fn main() -> Result<()> {
         ..Default::default()
     };
 
-    let pool_arc = Arc::new(pool.clone());
-    let metrics_clone = Arc::clone(&fusion_metrics);
+    // Bridge channel: fusion emits FusionSseEvent, api layer converts to SseEvent
+    let (fusion_tx, mut fusion_rx) = tokio::sync::broadcast::channel::<fusion::engine::FusionSseEvent>(256);
+    let bridge_sse_tx = sse_tx.clone();
     tokio::spawn(async move {
-        fusion::engine::run(pool_arc, config, metrics_clone).await;
+        loop {
+            match fusion_rx.recv().await {
+                Ok(evt) => {
+                    let sse_evt = match evt {
+                        fusion::engine::FusionSseEvent::IncidentCreated(inc) =>
+                            SseEvent::IncidentCreated { incident: inc },
+                        fusion::engine::FusionSseEvent::IncidentUpdated(inc) =>
+                            SseEvent::IncidentUpdated { incident: inc },
+                    };
+                    let _ = bridge_sse_tx.send(sse_evt);
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!(skipped = n, "fusion→sse bridge lagged");
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
     });
 
-    let state = AppState::new(pool, fusion_metrics);
+    let pool_arc    = Arc::new(pool.clone());
+    let metrics_arc = Arc::clone(&fusion_metrics);
+
+    tokio::spawn(async move {
+        fusion::engine::run(pool_arc, config, metrics_arc, fusion_tx).await;
+    });
+
+    // ── Heartbeat task (every 10s) ───────────────────────────────────────────
+    {
+        let tx = sse_tx.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                let _ = tx.send(SseEvent::Heartbeat);
+            }
+        });
+    }
+
+    // ── Stats broadcast task (every 5s) ─────────────────────────────────────
+    {
+        let tx      = sse_tx.clone();
+        let db_pool = pool.clone();
+        let metrics = Arc::clone(&fusion_metrics);
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+            loop {
+                interval.tick().await;
+
+                let now = Utc::now();
+                let events_last_hour   = db::queries::events::count_events_since(&db_pool, now - Duration::hours(1)).await.unwrap_or(0);
+                let events_last_minute = db::queries::events::count_events_since(&db_pool, now - Duration::minutes(1)).await.unwrap_or(0);
+                let open_incidents     = db::queries::incidents::count_open_incidents(&db_pool).await.unwrap_or(0);
+                let critical_incidents = db::queries::incidents::count_critical_incidents(&db_pool).await.unwrap_or(0);
+
+                let fusion_runs = metrics.runs.load(std::sync::atomic::Ordering::Relaxed);
+                let avg_fusion_latency_ms = metrics.last_latency_ms.load(std::sync::atomic::Ordering::Relaxed);
+                let last_fusion_at = *metrics.last_run_at.read().await;
+
+                let _ = tx.send(SseEvent::StatsUpdate {
+                    events_last_hour,
+                    events_last_minute,
+                    open_incidents,
+                    critical_incidents,
+                    fusion_runs,
+                    last_fusion_at,
+                    avg_fusion_latency_ms,
+                });
+            }
+        });
+    }
+
+    // ── App state + router ───────────────────────────────────────────────────
+    let state = AppState::new(pool, fusion_metrics, sse_tx);
 
     let app = Router::new()
-        .route("/api/health",            get(routes::health::handler))
-        .route("/api/stats",             get(routes::stats::handler))
-        .route("/api/events",            post(routes::events::ingest))
-        .route("/api/incidents",         get(routes::incidents::list))
-        .route("/api/incidents/:id",     get(routes::incidents::get_by_id))
+        .route("/api/health",        get(routes::health::handler))
+        .route("/api/stats",         get(routes::stats::handler))
+        .route("/api/events",        post(routes::events::ingest))
+        .route("/api/incidents",     get(routes::incidents::list))
+        .route("/api/incidents/:id", get(routes::incidents::get_by_id))
+        .route("/api/stream",        get(routes::stream::handler))
         .layer(axum_middleware::from_fn(middleware::metrics::track))
         .layer(CorsLayer::permissive())
         .with_state(state);

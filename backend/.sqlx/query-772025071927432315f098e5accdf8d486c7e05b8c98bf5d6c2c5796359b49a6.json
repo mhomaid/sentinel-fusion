@@ -1,0 +1,118 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id, title, summary, severity, confidence, status, geohash,\n            ST_Y(location::geometry) AS \"lat: f64\",\n            ST_X(location::geometry) AS \"lon: f64\",\n            event_ids, event_types, source_count, source_diversity,\n            first_event_at, last_event_at, created_at, updated_at\n        FROM incidents WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "summary",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "severity",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "confidence",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "geohash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "lat: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "lon: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 9,
+        "name": "event_ids",
+        "type_info": "UuidArray"
+      },
+      {
+        "ordinal": 10,
+        "name": "event_types",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 11,
+        "name": "source_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "source_diversity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "first_event_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "last_event_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 16,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "772025071927432315f098e5accdf8d486c7e05b8c98bf5d6c2c5796359b49a6"
+}
