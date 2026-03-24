@@ -301,6 +301,96 @@ sentinel-fusion/
 
 ---
 
+## Simulation — Generate Live Data
+
+The `simulate.py` script continuously POSTs sensor events across 8 global hot-zones, creating incidents that appear live on the map.
+
+```bash
+cd db-migrations
+
+# Burst mode — fire all zones once and exit (quick smoke-test)
+uv run simulate.py --burst
+
+# Continuous mode — 1 event/s forever (watch the map update live)
+uv run simulate.py
+
+# Faster simulation — 3 events/s
+uv run simulate.py --rate 3
+
+# Focus on a single zone
+uv run simulate.py --zone kyiv
+```
+
+**Zones:** Riyadh · Dubai · Tel Aviv · Cairo · Baghdad · Kabul · Kyiv · Seoul
+
+The fusion engine runs every 30s — incidents appear on the map within ~30s of the first events.
+
+---
+
+## Deployment
+
+The stack deploys as three separate services:
+
+| Service | Platform | Notes |
+|---|---|---|
+| PostgreSQL + PostGIS | **Supabase** | Free tier, PostGIS enabled by default |
+| Rust API | **Railway** | Docker-based, auto-deploys from `main` |
+| Next.js dashboard | **Vercel** | Already your platform, zero config |
+
+### 1. Database — Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy the connection string from **Settings → Database → URI** (use the direct connection, not the pooler)
+3. Set it as `SUPABASE_DATABASE_URL` in `.env.prod`
+4. Run migrations: `echo "3" | uv run migrations.py migrate` (selects prod)
+
+### 2. Backend — Railway
+
+1. Connect GitHub repo at [railway.app](https://railway.app)
+2. Create a new service → **Deploy from GitHub repo** → select `sentinel-fusion`
+3. Railway picks up `railway.toml` automatically (Dockerfile in `backend/`)
+4. Set environment variables in the Railway dashboard:
+
+```
+DATABASE_URL=<your Supabase connection string>
+SQLX_OFFLINE=true
+PORT=8080
+RUST_LOG=info
+FUSION_INTERVAL_SECS=30
+```
+
+5. The `/api/health` endpoint is the health check. Railway exposes a public URL like `https://sentinel-fusion-api.railway.app`.
+
+### 3. Frontend — Vercel
+
+1. Import the repo at [vercel.com](https://vercel.com)
+2. Set **Root Directory** to `frontend`
+3. Set these environment variables in Vercel:
+
+```
+NEXT_PUBLIC_API_URL=https://sentinel-fusion-api.railway.app
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.your_token_here
+```
+
+4. Update `frontend/vercel.json` — replace `your-railway-app.railway.app` with your actual Railway URL
+5. Deploy — Vercel will use `bun install` + `bun run build` automatically
+
+### CORS
+
+The Rust API uses `CorsLayer::permissive()` for development. Before production, restrict it to your Vercel domain in `backend/crates/api/src/main.rs`:
+
+```rust
+use tower_http::cors::{CorsLayer, AllowOrigin};
+use http::HeaderValue;
+
+let cors = CorsLayer::new()
+    .allow_origin("https://your-app.vercel.app".parse::<HeaderValue>().unwrap())
+    .allow_methods([Method::GET, Method::POST])
+    .allow_headers(Any);
+```
+
+---
+
 ## Mapbox Token Setup
 
 The incident map requires a Mapbox public token.
