@@ -2,7 +2,7 @@
 
 **Edge-to-intelligence pipeline for multi-sensor autonomous defense systems.**
 
-Raw sensor events — detections, drone telemetry, RF anomalies — are ingested, normalized, spatially and temporally correlated, scored, and served to operators as actionable intelligence incidents in under 100ms.
+Raw sensor events — detections, drone telemetry, RF anomalies — are ingested, normalized, spatially and temporally correlated, scored, and pushed to operators as actionable intelligence incidents in real time via Server-Sent Events.
 
 ---
 
@@ -21,8 +21,7 @@ Raw sensor events — detections, drone telemetry, RF anomalies — are ingested
 │  Rust · Axum HTTP server                                    │
 │  · Validates and stamps incoming events                     │
 │  · Normalizes to canonical schema                           │
-│  · Writes to raw_events (PostgreSQL)                        │
-│  · Publishes to internal event channel                      │
+│  · Writes to raw_events (PostgreSQL + PostGIS)              │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
@@ -33,7 +32,7 @@ Raw sensor events — detections, drone telemetry, RF anomalies — are ingested
 │  · Clusters events by geohash + type proximity              │
 │  · Scores clusters: confidence + severity                   │
 │  · Creates or updates incidents                             │
-│  · Deduplicates open incidents                              │
+│  · Broadcasts IncidentCreated/IncidentUpdated via SSE       │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
@@ -41,28 +40,29 @@ Raw sensor events — detections, drone telemetry, RF anomalies — are ingested
 │                  INTELLIGENCE STORE                         │
 │  PostgreSQL + PostGIS                                       │
 │  · raw_events table                                         │
-│  · incidents table                                          │
+│  · incidents table (lat/lon extracted from PostGIS geometry)│
 │  · Geospatial indexes on both                               │
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  INTELLIGENCE API                           │
+│              INTELLIGENCE API + SSE STREAM                  │
 │  Rust · Axum REST                                           │
+│  · GET /api/stream (Server-Sent Events — real-time push)    │
 │  · GET /api/incidents (filterable, paginated)               │
 │  · GET /api/incidents/:id (full detail + source events)     │
 │  · GET /api/stats (pipeline health + throughput)            │
 │  · GET /api/health                                          │
 └─────────────────────┬───────────────────────────────────────┘
-                      │
+                      │  SSE stream
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  OPERATOR DASHBOARD                         │
-│  Next.js · Minimal · Functional                             │
-│  · Incident feed (live polling, 5s interval)                │
-│  · Incident detail with source event breakdown              │
-│  · Map view with incident clusters (Leaflet + PostGIS)      │
-│  · Pipeline stats panel                                     │
+│  Next.js · Shadcn UI · Mapbox GL JS                         │
+│  · PipelineStats — 4 live-data cards                        │
+│  · IncidentMap — Mapbox dark map with severity markers      │
+│  · IncidentTable — live SSE feed with severity filter       │
+│  · IncidentDetailPanel — sheet with full source breakdown   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -75,47 +75,104 @@ Raw sensor events — detections, drone telemetry, RF anomalies — are ingested
 | API + Ingestion | Rust · Axum · Tokio |
 | Database client | SQLx (compile-time query checking) |
 | Intelligence store | PostgreSQL + PostGIS |
-| Operator dashboard | Next.js (App Router) |
-| Map rendering | Leaflet.js |
+| Real-time transport | Server-Sent Events (SSE) |
+| Operator dashboard | Next.js 16 (App Router) · Shadcn UI |
+| Map rendering | Mapbox GL JS · react-map-gl |
+| Package manager | Bun |
+| Database migrations | Python · uv · psycopg |
 | Infrastructure | Docker Compose |
 
 ---
 
 ## Quick Start
 
-**Prerequisites:** Docker, Docker Compose, Rust toolchain (`rustup`), Node 20+
+**Prerequisites:** Docker, Docker Compose, Rust toolchain (`rustup`), Bun, Python 3.11+, `uv`
 
 ```bash
 # 1. Clone and configure
 git clone https://github.com/mhomaid/sentinel-fusion
 cd sentinel-fusion
 cp .env.example .env
+# Edit .env and set your Mapbox token:
+#   NEXT_PUBLIC_MAPBOX_TOKEN=pk.your_token_here
+# Get a free token at https://account.mapbox.com
 
 # 2. Start infrastructure
 docker compose up -d
 
-# 3. Run the backend (migrations applied automatically)
+# 3. Run database migrations
+cd db-migrations
+uv run migrations.py migrate
+cd ..
+
+# 4. Run the backend
 cd backend
 cargo run --bin api
+cd ..
 
-# 4. Seed demo data (in a separate terminal)
-cd seed
+# 5. Seed demo data (in a separate terminal)
+cd db-migrations/seed
 chmod +x seed.sh
 ./seed.sh scenario_a       # → CRITICAL incident
 ./seed.sh scenario_b       # → HIGH incident
 ./seed.sh scenario_c_part1 # → LOW incident
 ./seed.sh scenario_c_part2 # → escalates to MEDIUM
 
-# 5. Start the operator dashboard
+# 6. Start the operator dashboard
 cd frontend
-npm install
-npm run dev
-# Open http://localhost:3000
+bun install
+bun run dev
+# Open http://localhost:3000/dashboard
 ```
 
 ---
 
+## Real-time Event Stream
+
+The backend exposes a persistent **Server-Sent Events** stream at `GET /api/stream`.
+
+### Why SSE over WebSockets
+
+The dashboard is purely **server → client**: incidents are created/updated by the fusion engine and pushed to operators. SSE is the correct transport — unidirectional, HTTP/1.1 compatible, automatic reconnect built into `EventSource`, and zero client-side complexity. WebSockets would add unnecessary bidirectional overhead with no benefit.
+
+### Event types
+
+| Event name | Payload | Description |
+|---|---|---|
+| `incident_created` | `{ incident: Incident }` | Fusion engine opened a new incident |
+| `incident_updated` | `{ incident: Incident }` | Score, severity, or source list changed |
+| `stats_update` | `StatsPayload` | Every 5s — pipeline throughput snapshot |
+| `heartbeat` | `{}` | Every 10s — keeps proxies from closing the connection |
+
+### Connecting from the browser
+
+```typescript
+const source = new EventSource("http://localhost:8080/api/stream");
+
+source.addEventListener("incident_created", (e) => {
+  const { incident } = JSON.parse(e.data);
+  // add to list
+});
+
+source.addEventListener("stats_update", (e) => {
+  const stats = JSON.parse(e.data);
+  // update counters
+});
+```
+
+The frontend hooks (`useSSE`, `useIncidents`, `useStats`) handle this automatically with a singleton `EventSource` shared across all components.
+
+---
+
 ## API Reference
+
+### SSE Stream
+```
+GET /api/stream
+Accept: text/event-stream
+
+→ Persistent SSE connection
+```
 
 ### Ingest Event
 ```
@@ -136,7 +193,7 @@ Response 200: { "incidents": [...], "total": 12, "limit": 50, "offset": 0 }
 ```
 GET /api/incidents/:id
 
-Response 200: full incident with linked source_events array
+Response 200: full incident with lat/lon and source event IDs
 ```
 
 ### Pipeline Stats
@@ -169,7 +226,7 @@ Response 200: { "status": "ok", "db": "connected", "uptime_seconds": 3847 }
 The fusion engine runs every 30 seconds on a Tokio interval timer and processes the following pipeline:
 
 1. **Window query** — fetch events from the last 5 minutes not assigned to a closed incident
-2. **Spatial clustering** — group by `ST_GeoHash(location, 7)` (≈150m × 150m cells), merge adjacent cells within 300m via `ST_DWithin`
+2. **Spatial clustering** — group by geohash (precision 7, ≈150m × 150m cells)
 3. **Temporal filtering** — within each cluster, group events in 3-minute sliding windows
 4. **Scoring**
 
@@ -190,7 +247,8 @@ SIGNAL anomaly present + any other type → escalate one level
 
 5. **Title + summary generation** — deterministic templates derived from actual field values (frequency, speed, geohash)
 6. **Deduplication** — open incident at same geohash in last 10 minutes → update, not insert
-7. **Stale closure** — open incidents with no new events for 15 minutes → CLOSED
+7. **SSE broadcast** — after each upsert, broadcasts `INCIDENT_CREATED` or `INCIDENT_UPDATED`
+8. **Stale closure** — open incidents with no new events for 15 minutes → CLOSED
 
 ---
 
@@ -201,23 +259,40 @@ sentinel-fusion/
 │
 ├── backend/                         # Rust workspace
 │   ├── Cargo.toml
-│   ├── crates/
-│   │   ├── api/                     # Axum HTTP server
-│   │   ├── fusion/                  # Fusion engine
-│   │   ├── ingest/                  # Event normalizer
-│   │   └── db/                      # Database layer
-│   └── migrations/
-│       ├── 001_schema.sql
-│       └── 002_indexes.sql
+│   ├── .sqlx/                       # Cached SQLx queries (offline builds)
+│   └── crates/
+│       ├── api/                     # Axum HTTP server + SSE endpoint
+│       ├── fusion/                  # Fusion engine + SSE broadcast
+│       ├── ingest/                  # Event normalizer
+│       └── db/                      # Database layer (models + queries)
 │
-├── frontend/                        # Next.js operator dashboard
+├── db-migrations/                   # Python migration CLI (uv)
+│   ├── migrations.py                # uv run migrations.py migrate/status/seed
+│   ├── migrations/
+│   │   ├── 001_schema.sql
+│   │   └── 002_indexes.sql
+│   └── seed/
+│       ├── events.json              # 3 named demo scenarios
+│       └── seed.sh                  # curl loop poster
+│
+├── frontend/                        # Next.js 16 operator dashboard
 │   └── src/
-│       ├── app/
-│       └── components/
+│       ├── app/dashboard/page.tsx   # Main dashboard (rewired with live data)
+│       ├── components/
+│       │   ├── pipeline-stats.tsx   # 4 live-data stat cards
+│       │   ├── incident-map.tsx     # Mapbox GL dark map with markers
+│       │   ├── incident-table.tsx   # SSE-live table with severity filter
+│       │   └── incident-detail-panel.tsx  # Slide-in incident sheet
+│       ├── hooks/
+│       │   ├── useSSE.ts            # Singleton EventSource manager
+│       │   ├── useIncidents.ts      # SSE-live incident list
+│       │   └── useStats.ts          # SSE-live pipeline stats
+│       └── types/
+│           └── incident.ts          # Shared TypeScript types
 │
-├── seed/
-│   ├── events.json                  # 3 named demo scenarios
-│   └── seed.sh                      # curl loop poster
+├── docker/
+│   ├── Dockerfile.db                # postgres:18.3-alpine + PostGIS
+│   └── init/01-extensions.sql       # Enables postgis + uuid-ossp
 │
 ├── docker-compose.yml
 ├── .env.example
@@ -226,7 +301,31 @@ sentinel-fusion/
 
 ---
 
+## Mapbox Token Setup
+
+The incident map requires a Mapbox public token.
+
+1. Create a free account at [account.mapbox.com](https://account.mapbox.com)
+2. Copy your default public token (starts with `pk.`)
+3. Add it to `frontend/.env.local`:
+   ```
+   NEXT_PUBLIC_MAPBOX_TOKEN=pk.your_token_here
+   ```
+   This file is automatically ignored by Next.js / git. Do not commit it.
+
+For development without a token, the map shows a placeholder message and all other dashboard features work normally.
+
+---
+
 ## Design Decisions
+
+### Why SSE over WebSockets
+
+The dashboard is a **read-only consumer** of intelligence events. The fusion engine writes, the operator reads. SSE is the right fit: it uses standard HTTP, reconnects automatically, works through load balancers without upgrade headers, and requires zero protocol state on the server. The `broadcast::channel` in Tokio is the sole source of truth — any number of SSE clients subscribe independently.
+
+### Why Mapbox GL over Leaflet
+
+Mapbox GL renders the map via WebGL rather than DOM-manipulated tiles. This makes it orders of magnitude faster for animated, dynamically updated markers — exactly what a real-time incident map needs. The `dark-v11` style provides an appropriate tactical backdrop.
 
 ### Why deterministic scoring over ML
 
@@ -236,15 +335,15 @@ Every incident's confidence score can be traced back to the exact event count, s
 
 ### Why Rust
 
-Atam is building autonomous defense systems. Rust is the right signal: memory safety without a GC, zero-cost abstractions, and a compiler that eliminates entire classes of production failures. The fusion hot path and the API server share a single async runtime (Tokio) with no thread-per-request overhead.
+Memory safety without a GC, zero-cost abstractions, and a compiler that eliminates entire classes of production failures. The fusion hot path and the API server share a single async runtime (Tokio) with no thread-per-request overhead. The same binary runs identically on a cloud instance or embedded Jetson hardware.
 
 ### Why PostGIS over a custom spatial index
 
-`ST_DWithin`, `ST_GeoHash`, and `ST_Collect` are exactly what the fusion engine needs. Building spatial indexing from scratch would trade weeks of engineering for something PostGIS has already solved and battle-tested.
+`ST_DWithin`, `ST_GeoHash`, and `ST_MakePoint` are exactly what the fusion engine needs. Building spatial indexing from scratch would trade weeks of engineering for something PostGIS has already solved and battle-tested. Supabase (production target) ships with PostGIS enabled.
 
 ### Deduplication design
 
-A naïve implementation would create one incident per fusion cycle, drowning operators in duplicates. The deduplication step checks for an open incident at the same geohash within the last 10 minutes before inserting. Matching incidents are updated in place — event list appended, score recalculated, status set to `UPDATING`. The operator sees a live update, not a new noisy alert.
+A naïve implementation would create one incident per fusion cycle, drowning operators in duplicates. The deduplication step checks for an open incident at the same geohash within the last 10 minutes before inserting. Matching incidents are updated in place — event list appended, score recalculated, status set to `UPDATING`. The operator sees a live update in the SSE stream, not a new noisy alert.
 
 ---
 

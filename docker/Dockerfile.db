@@ -1,6 +1,13 @@
 # Sentinel Fusion — PostgreSQL with PostGIS
-# Extends the official postgres:18.3-alpine image and adds the PostGIS
-# spatial extension so ST_DWithin, ST_GeoHash, and ST_Collect are available.
+#
+# The official postgres:18.3-alpine image installs PostgreSQL to /usr/local,
+# but Alpine's postgis package installs extension files to /usr/share/postgresql18
+# and libraries to /usr/lib/postgresql18. We bridge that mismatch by copying
+# everything into the paths pg_config reports.
 FROM postgres:18.3-alpine
 
-RUN apk add --no-cache postgis
+RUN apk add --no-cache postgis \
+ && cp /usr/share/postgresql18/extension/postgis*  /usr/local/share/postgresql/extension/ \
+ && cp /usr/lib/postgresql18/postgis*.so           /usr/local/lib/postgresql/ \
+ && cp /usr/lib/postgresql18/address_standardizer* /usr/local/lib/postgresql/ \
+ && cp /usr/lib/postgresql18/liblwgeom*.so*        /usr/local/lib/postgresql/ 2>/dev/null || true

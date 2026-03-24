@@ -9,7 +9,9 @@ dependencies = [
     "python-dotenv>=1.0",
     "rich>=13.0",
     "typer>=0.12",
+    "httpx>=0.27",
 ]
 
 [project.scripts]
-migrate = "migrations:app"
+migrate   = "migrations:app"
+simulate  = "simulate:main"
