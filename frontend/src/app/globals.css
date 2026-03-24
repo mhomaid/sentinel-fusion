@@ -7,7 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Use Geist Mono as the primary font everywhere for a consistent tactical feel */
+  /* Use Geist Mono as the primary font everywhere for a consistent tactical feel.
+     --default-font-family is what Tailwind v4 preflight uses on <html>.
+     --font-sans covers utility classes like font-sans / @apply font-sans.
+     Both must be set. */
+  --default-font-family: var(--font-geist-mono);
   --font-sans: var(--font-geist-mono);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-geist-mono);
@@ -128,8 +132,12 @@
   body {
     @apply bg-background text-foreground;
   }
-  html {
+  /* Apply Geist Mono globally. We set both via @apply (which resolves --font-sans)
+     and via a direct font-family declaration (which resolves --font-geist-mono set
+     at runtime by Next.js), so either path in the cascade uses the correct font. */
+  html, body {
     @apply font-sans;
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 }
 
