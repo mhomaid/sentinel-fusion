@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { formatDistanceToNow, format } from "date-fns";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
   CircleDotIcon,
+  ExternalLinkIcon,
   FilterIcon,
   RefreshCwIcon,
   ShieldAlertIcon,
@@ -218,6 +220,7 @@ export default function IncidentsPage() {
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">Location</TableHead>
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">First seen</TableHead>
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">Last event</TableHead>
+                <TableHead className="w-8" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -267,6 +270,11 @@ export default function IncidentsPage() {
                   </TableCell>
                   <TableCell className="text-[10px] text-muted-foreground whitespace-nowrap">
                     {formatDistanceToNow(new Date(inc.last_event_at), { addSuffix: true })}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/incidents/${inc.id}`}>
+                      <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-600 hover:text-cyan-400 transition-colors" />
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

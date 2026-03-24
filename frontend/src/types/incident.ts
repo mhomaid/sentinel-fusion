@@ -1,4 +1,15 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
+export interface IncidentEvent {
+  id: string;
+  event_type: string;
+  source_id: string;
+  source_class: "DRONE" | "CAMERA" | "RF_SENSOR" | "RADAR" | string;
+  lat: number;
+  lon: number;
+  payload: Record<string, unknown>;
+  received_at: string;
+}
 export type IncidentStatus = "OPEN" | "UPDATING" | "CLOSED";
 
 export interface Incident {

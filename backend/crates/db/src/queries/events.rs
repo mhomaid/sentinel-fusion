@@ -1,9 +1,9 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-use crate::models::NormalizedEvent;
+use crate::models::{IncidentEvent, NormalizedEvent};
 
 pub async fn insert_event(pool: &PgPool, event: &NormalizedEvent) -> Result<Uuid> {
     let id = sqlx::query_scalar!(
@@ -61,6 +61,50 @@ pub async fn fetch_events_in_window(
         .into_iter()
         .map(|r| (r.id, r.event_type, r.source_class, r.lat, r.lon, r.payload, r.received_at))
         .collect())
+}
+
+/// Fetch every raw event that belongs to a specific incident, identified by
+/// its list of event UUIDs stored on the incident row.
+pub async fn fetch_events_by_ids(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<IncidentEvent>> {
+    if ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let rows = sqlx::query(
+        r#"
+        SELECT
+            id,
+            event_type,
+            source_id,
+            source_class,
+            ST_Y(location::geometry) AS lat,
+            ST_X(location::geometry) AS lon,
+            payload,
+            received_at
+        FROM raw_events
+        WHERE id = ANY($1::uuid[])
+        ORDER BY received_at ASC
+        "#,
+    )
+    .bind(ids.to_vec())
+    .fetch_all(pool)
+    .await?;
+
+    let events = rows
+        .into_iter()
+        .map(|r| IncidentEvent {
+            id:           r.try_get("id").unwrap_or_default(),
+            event_type:   r.try_get("event_type").unwrap_or_default(),
+            source_id:    r.try_get("source_id").unwrap_or_default(),
+            source_class: r.try_get("source_class").unwrap_or_default(),
+            lat:          r.try_get::<f64, _>("lat").unwrap_or(0.0),
+            lon:          r.try_get::<f64, _>("lon").unwrap_or(0.0),
+            payload:      r.try_get("payload").unwrap_or_default(),
+            received_at:  r.try_get("received_at").unwrap_or_default(),
+        })
+        .collect();
+
+    Ok(events)
 }
 
 pub async fn count_events_since(pool: &PgPool, since: DateTime<Utc>) -> Result<i64> {

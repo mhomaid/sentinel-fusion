@@ -34,16 +34,39 @@ console = Console()
 # GCC / Saudi-Arabia-first zones.
 # Riyadh has 3x weight — it dominates the map as the primary zone.
 ZONES: dict[str, dict] = {
-    # Saudi Arabia — primary
-    "riyadh":        {"lat": 24.7136, "lon": 46.6753, "jitter": 0.018, "label": "Riyadh, SA",          "weight": 3},
-    "jeddah":        {"lat": 21.5433, "lon": 39.1728, "jitter": 0.012, "label": "Jeddah, SA",           "weight": 1},
-    "tabuk":         {"lat": 28.3998, "lon": 36.5717, "jitter": 0.015, "label": "Tabuk (N. Border), SA","weight": 2},
-    "jizan":         {"lat": 16.8892, "lon": 42.5611, "jitter": 0.014, "label": "Jizan (S. Border), SA","weight": 2},
-    "najran":        {"lat": 17.4933, "lon": 44.1277, "jitter": 0.013, "label": "Najran (S. Border), SA","weight": 2},
-    # GCC neighbours
-    "dubai":         {"lat": 25.2048, "lon": 55.2708, "jitter": 0.010, "label": "Dubai, UAE",           "weight": 1},
-    "abudhabi":      {"lat": 24.4539, "lon": 54.3773, "jitter": 0.012, "label": "Abu Dhabi, UAE",       "weight": 1},
-    "kuwait":        {"lat": 29.3759, "lon": 47.9774, "jitter": 0.010, "label": "Kuwait City, KW",      "weight": 1},
+    # ── Saudi Arabia (primary, higher weights) ────────────────────────────────
+    "riyadh":          {"lat": 24.7136, "lon": 46.6753, "jitter": 0.008, "label": "Riyadh (Downtown), SA",    "weight": 4},
+    "riyadh_kafd":     {"lat": 24.8029, "lon": 46.6336, "jitter": 0.008, "label": "Riyadh (KAFD), SA",        "weight": 3},
+    "jeddah":          {"lat": 21.5433, "lon": 39.1728, "jitter": 0.008, "label": "Jeddah, SA",                "weight": 2},
+    "jeddah_port":     {"lat": 21.4858, "lon": 39.1925, "jitter": 0.008, "label": "Jeddah Islamic Port, SA",   "weight": 2},
+    "mecca":           {"lat": 21.3891, "lon": 39.8579, "jitter": 0.008, "label": "Mecca, SA",                 "weight": 2},
+    "madinah":         {"lat": 24.4672, "lon": 39.6150, "jitter": 0.008, "label": "Madinah, SA",               "weight": 2},
+    "dammam":          {"lat": 26.4207, "lon": 50.0888, "jitter": 0.008, "label": "Dammam, SA",                "weight": 2},
+    "khobar":          {"lat": 26.2172, "lon": 50.1971, "jitter": 0.008, "label": "Al Khobar, SA",             "weight": 1},
+    "tabuk":           {"lat": 28.3998, "lon": 36.5717, "jitter": 0.008, "label": "Tabuk, SA",                 "weight": 2},
+    "jizan":           {"lat": 16.8892, "lon": 42.5611, "jitter": 0.008, "label": "Jizan, SA",                 "weight": 2},
+    # ── UAE ───────────────────────────────────────────────────────────────────
+    "dubai_downtown":  {"lat": 25.1972, "lon": 55.2744, "jitter": 0.008, "label": "Dubai (Downtown), UAE",     "weight": 2},
+    "dubai_marina":    {"lat": 25.0777, "lon": 55.1405, "jitter": 0.008, "label": "Dubai Marina, UAE",         "weight": 1},
+    "abudhabi":        {"lat": 24.4539, "lon": 54.3773, "jitter": 0.008, "label": "Abu Dhabi, UAE",            "weight": 2},
+    "sharjah":         {"lat": 25.3463, "lon": 55.4209, "jitter": 0.008, "label": "Sharjah, UAE",              "weight": 1},
+    "alain":           {"lat": 24.2075, "lon": 55.7447, "jitter": 0.008, "label": "Al Ain, UAE",               "weight": 1},
+    # ── Qatar ─────────────────────────────────────────────────────────────────
+    "doha":            {"lat": 25.2854, "lon": 51.5310, "jitter": 0.008, "label": "Doha, QA",                  "weight": 2},
+    "doha_corniche":   {"lat": 25.2966, "lon": 51.5329, "jitter": 0.008, "label": "Doha Corniche, QA",         "weight": 1},
+    "lusail":          {"lat": 25.4267, "lon": 51.4892, "jitter": 0.008, "label": "Lusail City, QA",           "weight": 1},
+    "al_wakrah":       {"lat": 25.1700, "lon": 51.6030, "jitter": 0.008, "label": "Al Wakrah, QA",             "weight": 1},
+    "al_khor":         {"lat": 25.6797, "lon": 51.4990, "jitter": 0.008, "label": "Al Khor, QA",               "weight": 1},
+    # ── Kuwait ────────────────────────────────────────────────────────────────
+    "kuwait_city":     {"lat": 29.3759, "lon": 47.9774, "jitter": 0.008, "label": "Kuwait City, KW",           "weight": 2},
+    "ahmadi":          {"lat": 29.0833, "lon": 48.0833, "jitter": 0.008, "label": "Ahmadi (Oil Zone), KW",     "weight": 1},
+    "salmiya":         {"lat": 29.3341, "lon": 48.0787, "jitter": 0.008, "label": "Salmiya, KW",               "weight": 1},
+    # ── Bahrain ───────────────────────────────────────────────────────────────
+    "manama":          {"lat": 26.2235, "lon": 50.5876, "jitter": 0.008, "label": "Manama, BH",                "weight": 1},
+    "riffa":           {"lat": 26.1230, "lon": 50.5558, "jitter": 0.008, "label": "Riffa, BH",                 "weight": 1},
+    # ── Oman ──────────────────────────────────────────────────────────────────
+    "muscat":          {"lat": 23.5880, "lon": 58.3829, "jitter": 0.008, "label": "Muscat, OM",                "weight": 1},
+    "salalah":         {"lat": 17.0151, "lon": 54.0924, "jitter": 0.008, "label": "Salalah, OM",               "weight": 1},
 }
 
 # ── Event generators ──────────────────────────────────────────────────────────

@@ -38,6 +38,19 @@ pub struct Incident {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A raw event returned as part of an incident's evidence trail
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IncidentEvent {
+    pub id: Uuid,
+    pub event_type: String,
+    pub source_id: String,
+    pub source_class: String,
+    pub lat: f64,
+    pub lon: f64,
+    pub payload: serde_json::Value,
+    pub received_at: DateTime<Utc>,
+}
+
 /// Canonical normalized event — internal representation after ingestion
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedEvent {

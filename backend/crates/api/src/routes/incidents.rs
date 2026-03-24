@@ -7,7 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use db::models::Incident;
+use db::models::{Incident, IncidentEvent};
+use db::queries::events::fetch_events_by_ids;
 use db::queries::incidents::{get_incident_by_id, list_incidents};
 
 use crate::state::AppState;
@@ -76,4 +77,26 @@ pub async fn get_by_id(
         Ok(None) => Err((StatusCode::NOT_FOUND, format!("incident {id} not found"))),
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     }
+}
+
+/// GET /api/incidents/:id/events
+///
+/// Returns every raw sensor event that contributed to this incident,
+/// ordered chronologically.  Useful for the detail page timeline and
+/// drone-path animation.
+pub async fn get_incident_events(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<IncidentEvent>>, (StatusCode, String)> {
+    let incident = match get_incident_by_id(&state.db, id).await {
+        Ok(Some(i)) => i,
+        Ok(None) => return Err((StatusCode::NOT_FOUND, format!("incident {id} not found"))),
+        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
+    };
+
+    let events = fetch_events_by_ids(&state.db, &incident.event_ids)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(events))
 }
