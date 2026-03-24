@@ -77,7 +77,7 @@ export function IncidentDetailPanel({ incidentId, open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto px-6 sm:max-w-xl">
         {loading && (
           <div className="mt-6 space-y-3">
             <Skeleton className="h-6 w-3/4" />
