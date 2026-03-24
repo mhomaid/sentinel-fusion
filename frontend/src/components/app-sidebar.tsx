@@ -30,9 +30,9 @@ import { NavUser } from "@/components/nav-user";
 
 const NAV_MAIN = [
   { title: "Dashboard",  url: "/dashboard", icon: LayoutDashboardIcon },
-  { title: "Incidents",  url: "/dashboard", icon: AlertTriangleIcon,  badge: true },
-  { title: "Event Log",  url: "/dashboard", icon: RadioIcon },
-  { title: "Analytics",  url: "/dashboard", icon: BarChart3Icon },
+  { title: "Incidents",  url: "/incidents", icon: AlertTriangleIcon,  badge: true },
+  { title: "Event Log",  url: "/events",    icon: RadioIcon },
+  { title: "Analytics",  url: "/analytics", icon: BarChart3Icon },
 ];
 
 const NAV_SYSTEM = [
@@ -81,7 +81,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {NAV_MAIN.map((item) => {
-                const active = pathname === item.url;
+                const active = pathname === item.url || pathname.startsWith(item.url + "/");
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
