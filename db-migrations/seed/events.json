@@ -1,0 +1,100 @@
+{
+  "scenario_a": {
+    "description": "Converging Threat — multi-sensor convergence produces CRITICAL incident",
+    "events": [
+      {
+        "source": "cam-alpha-07",
+        "type": "detection",
+        "objects": [{ "class": "vehicle", "confidence": 0.91, "speed_kmh": 87 }],
+        "lat": 24.7136,
+        "lon": 46.6753,
+        "ts": 1711200000
+      },
+      {
+        "sensor_id": "rf-sensor-03",
+        "frequency_mhz": 433.9,
+        "strength_dbm": -62,
+        "anomaly": true,
+        "anomaly_type": "UNKNOWN_TRANSMISSION",
+        "position": { "lat": 24.7141, "lon": 46.6748 },
+        "ts": 1711200045
+      },
+      {
+        "drone_id": "sentinel-02",
+        "altitude_m": 120,
+        "heading_deg": 247,
+        "speed_ms": 12.4,
+        "battery_pct": 61,
+        "lat": 24.7138,
+        "lon": 46.6751,
+        "timestamp": "2026-03-23T14:22:03Z"
+      }
+    ]
+  },
+  "scenario_b": {
+    "description": "RF Anomaly Cluster — four RF sensors on same frequency produces HIGH incident",
+    "events": [
+      {
+        "sensor_id": "rf-01",
+        "frequency_mhz": 915.0,
+        "strength_dbm": -58,
+        "anomaly": true,
+        "anomaly_type": "UNKNOWN_TRANSMISSION",
+        "position": { "lat": 24.720, "lon": 46.680 }
+      },
+      {
+        "sensor_id": "rf-02",
+        "frequency_mhz": 914.8,
+        "strength_dbm": -61,
+        "anomaly": true,
+        "anomaly_type": "UNKNOWN_TRANSMISSION",
+        "position": { "lat": 24.721, "lon": 46.681 }
+      },
+      {
+        "sensor_id": "rf-03",
+        "frequency_mhz": 915.1,
+        "strength_dbm": -60,
+        "anomaly": true,
+        "anomaly_type": "UNKNOWN_TRANSMISSION",
+        "position": { "lat": 24.719, "lon": 46.679 }
+      },
+      {
+        "sensor_id": "rf-04",
+        "frequency_mhz": 915.0,
+        "strength_dbm": -63,
+        "anomaly": true,
+        "anomaly_type": "UNKNOWN_TRANSMISSION",
+        "position": { "lat": 24.722, "lon": 46.682 }
+      }
+    ]
+  },
+  "scenario_c_part1": {
+    "description": "Lone Telemetry — single drone patrol produces LOW incident",
+    "events": [
+      {
+        "drone_id": "drone-sentinel-04",
+        "altitude_m": 90,
+        "heading_deg": 180,
+        "speed_ms": 8.2,
+        "battery_pct": 88,
+        "lat": 24.730,
+        "lon": 46.690,
+        "timestamp": "2026-03-23T14:00:00Z"
+      }
+    ]
+  },
+  "scenario_c_part2": {
+    "description": "Escalation — camera detection nearby escalates the LOW incident to MEDIUM",
+    "delay_seconds": 240,
+    "events": [
+      {
+        "source": "cam-beta-02",
+        "type": "detection",
+        "objects": [{ "class": "person", "confidence": 0.84, "speed_kmh": 5 }],
+        "lat": 24.731,
+        "lon": 46.691,
+        "ts": 1711200240
+      }
+    ]
+  }
+}

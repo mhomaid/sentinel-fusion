@@ -1,0 +1,37 @@
+# ── Private docs (kept local only) ──────────────────────────────────────────
+docs/
+
+# ── Rust ─────────────────────────────────────────────────────────────────────
+target/
+**/*.rs.bk
+Cargo.lock
+
+# ── Node / Next.js (Bun) ─────────────────────────────────────────────────────
+node_modules/
+.next/
+.turbo/
+out/
+dist/
+# Bun lockfile is committed; ignore npm/yarn/pnpm lockfiles
+package-lock.json
+yarn.lock
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+bun-error.log
+
+# ── Environment ──────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Docker volumes ───────────────────────────────────────────────────────────
+postgres_data/

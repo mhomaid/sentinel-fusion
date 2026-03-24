@@ -1,0 +1,6 @@
+# Sentinel Fusion — PostgreSQL with PostGIS
+# Extends the official postgres:18.3-alpine image and adds the PostGIS
+# spatial extension so ST_DWithin, ST_GeoHash, and ST_Collect are available.
+FROM postgres:18.3-alpine
+
+RUN apk add --no-cache postgis
