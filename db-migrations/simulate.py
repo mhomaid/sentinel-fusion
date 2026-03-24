@@ -31,16 +31,19 @@ from rich import box
 console = Console()
 
 # ── Hot-zone definitions ──────────────────────────────────────────────────────
-# Each zone has a centre lat/lon and a jitter radius (degrees ~≈ km scale).
+# GCC / Saudi-Arabia-first zones.
+# Riyadh has 3x weight — it dominates the map as the primary zone.
 ZONES: dict[str, dict] = {
-    "riyadh":   {"lat": 24.7136, "lon": 46.6753, "jitter": 0.015, "label": "Riyadh, SA"},
-    "dubai":    {"lat": 25.2048, "lon": 55.2708, "jitter": 0.012, "label": "Dubai, UAE"},
-    "tel_aviv": {"lat": 32.0853, "lon": 34.7818, "jitter": 0.010, "label": "Tel Aviv, IL"},
-    "cairo":    {"lat": 30.0444, "lon": 31.2357, "jitter": 0.018, "label": "Cairo, EG"},
-    "baghdad":  {"lat": 33.3152, "lon": 44.3661, "jitter": 0.020, "label": "Baghdad, IQ"},
-    "kabul":    {"lat": 34.5553, "lon": 69.2075, "jitter": 0.016, "label": "Kabul, AF"},
-    "kyiv":     {"lat": 50.4501, "lon": 30.5234, "jitter": 0.022, "label": "Kyiv, UA"},
-    "seoul":    {"lat": 37.5665, "lon": 126.9780, "jitter": 0.014, "label": "Seoul, KR"},
+    # Saudi Arabia — primary
+    "riyadh":        {"lat": 24.7136, "lon": 46.6753, "jitter": 0.018, "label": "Riyadh, SA",          "weight": 3},
+    "jeddah":        {"lat": 21.5433, "lon": 39.1728, "jitter": 0.012, "label": "Jeddah, SA",           "weight": 1},
+    "tabuk":         {"lat": 28.3998, "lon": 36.5717, "jitter": 0.015, "label": "Tabuk (N. Border), SA","weight": 2},
+    "jizan":         {"lat": 16.8892, "lon": 42.5611, "jitter": 0.014, "label": "Jizan (S. Border), SA","weight": 2},
+    "najran":        {"lat": 17.4933, "lon": 44.1277, "jitter": 0.013, "label": "Najran (S. Border), SA","weight": 2},
+    # GCC neighbours
+    "dubai":         {"lat": 25.2048, "lon": 55.2708, "jitter": 0.010, "label": "Dubai, UAE",           "weight": 1},
+    "abudhabi":      {"lat": 24.4539, "lon": 54.3773, "jitter": 0.012, "label": "Abu Dhabi, UAE",       "weight": 1},
+    "kuwait":        {"lat": 29.3759, "lon": 47.9774, "jitter": 0.010, "label": "Kuwait City, KW",      "weight": 1},
 }
 
 # ── Event generators ──────────────────────────────────────────────────────────
@@ -204,7 +207,13 @@ class Simulator:
 
     def run(self, rate: float = 1.0, zone_filter: str | None = None):
         """Run the simulator indefinitely at `rate` events/second."""
-        zones = [zone_filter] if zone_filter else list(ZONES.keys())
+        if zone_filter:
+            zones = [zone_filter]
+        else:
+            # Build weighted list so high-weight zones are picked more often
+            zones = []
+            for name, z in ZONES.items():
+                zones.extend([name] * z.get("weight", 1))
         delay = 1.0 / rate
 
         with Live(self._make_panel(), refresh_per_second=4, console=console) as live:
@@ -246,7 +255,7 @@ class Simulator:
 
 def main():
     ap = argparse.ArgumentParser(description="Sentinel Fusion live event simulator")
-    ap.add_argument("--api",   default="http://localhost:8080", help="API base URL")
+    ap.add_argument("--api",   default="https://sentinel-fusion-production-1147.up.railway.app", help="API base URL")
     ap.add_argument("--rate",  type=float, default=1.0,  help="Events per second (default: 1)")
     ap.add_argument("--burst", action="store_true",       help="Fire one burst per zone and exit")
     ap.add_argument("--zone",  default=None,              help="Only simulate a specific zone")

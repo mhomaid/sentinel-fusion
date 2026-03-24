@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Map, {
   Layer,
   MapMouseEvent,
@@ -39,8 +39,31 @@ function incidentsToGeoJson(incidents: Incident[]): GeoJSON.FeatureCollection {
           confidence: i.confidence,
           color: SEVERITY_COLOR[i.severity as Severity] ?? "#94a3b8",
           radius: Math.max(6, i.confidence * 22),
+          isCritical: i.severity === "CRITICAL" ? 1 : 0,
         },
       })),
+  };
+}
+
+// Splits the full incident list into CRITICAL-only and non-CRITICAL GeoJSON.
+function splitByGeoJson(incidents: Incident[]): {
+  critical: GeoJSON.FeatureCollection;
+  rest: GeoJSON.FeatureCollection;
+} {
+  const all = incidentsToGeoJson(incidents);
+  return {
+    critical: {
+      type: "FeatureCollection",
+      features: all.features.filter(
+        (f) => f.properties?.severity === "CRITICAL"
+      ),
+    },
+    rest: {
+      type: "FeatureCollection",
+      features: all.features.filter(
+        (f) => f.properties?.severity !== "CRITICAL"
+      ),
+    },
   };
 }
 
@@ -53,7 +76,26 @@ export function IncidentMap({ onSelectIncident }: Props) {
   const { incidents } = useIncidents();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const geojson = incidentsToGeoJson(incidents);
+  // Pulse animation state — oscillates between 0 and 1 on a 1.2s cycle.
+  const [pulsePhase, setPulsePhase] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const start = performance.now();
+    function tick() {
+      const elapsed = (performance.now() - start) / 1200; // 1.2s period
+      setPulsePhase((elapsed % 1));
+      frame = requestAnimationFrame(tick);
+    }
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  // Smooth eased pulse: starts fast, slows at peak.
+  const eased = Math.sin(pulsePhase * Math.PI);
+  const pulseOuterScale = 1.0 + eased * 1.4;   // 1.0 → 2.4 → 1.0
+  const pulseOuterOpacity = 0.55 - eased * 0.45; // 0.55 → 0.10 → 0.55
+
+  const { critical, rest } = splitByGeoJson(incidents);
 
   const handleClick = useCallback(
     (e: MapMouseEvent) => {
@@ -68,17 +110,13 @@ export function IncidentMap({ onSelectIncident }: Props) {
   );
 
   const handleMouseEnter = useCallback((e: MapMouseEvent) => {
-    if (mapRef.current) {
-      mapRef.current.getCanvas().style.cursor = "pointer";
-    }
+    if (mapRef.current) mapRef.current.getCanvas().style.cursor = "pointer";
     const id = e.features?.[0]?.properties?.id as string | undefined;
     if (id) setHoveredId(id);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    if (mapRef.current) {
-      mapRef.current.getCanvas().style.cursor = "";
-    }
+    if (mapRef.current) mapRef.current.getCanvas().style.cursor = "";
     setHoveredId(null);
   }, []);
 
@@ -89,18 +127,18 @@ export function IncidentMap({ onSelectIncident }: Props) {
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         initialViewState={{
-          longitude: 0,
-          latitude: 20,
-          zoom: 2,
+          longitude: 45.0,
+          latitude: 24.0,
+          zoom: 4.5,
         }}
         style={{ width: "100%", height: "100%" }}
-        interactiveLayerIds={["incident-circles"]}
+        interactiveLayerIds={["incident-circles", "critical-circles"]}
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <Source id="incidents" type="geojson" data={geojson}>
-          {/* Outer glow ring */}
+        {/* ── Non-CRITICAL incidents (static) ───────────────────── */}
+        <Source id="incidents-rest" type="geojson" data={rest}>
           <Layer
             id="incident-halos"
             type="circle"
@@ -111,8 +149,6 @@ export function IncidentMap({ onSelectIncident }: Props) {
               "circle-blur": 0.8,
             }}
           />
-
-          {/* Main marker */}
           <Layer
             id="incident-circles"
             type="circle"
@@ -131,6 +167,58 @@ export function IncidentMap({ onSelectIncident }: Props) {
             }}
           />
         </Source>
+
+        {/* ── CRITICAL incidents — animated pulse rings ─────────── */}
+        <Source id="incidents-critical" type="geojson" data={critical}>
+          {/* Outer expanding ring */}
+          <Layer
+            id="critical-pulse-outer"
+            type="circle"
+            paint={{
+              "circle-radius": [
+                "*",
+                ["get", "radius"],
+                pulseOuterScale,
+              ],
+              "circle-color": "#ef4444",
+              "circle-opacity": pulseOuterOpacity,
+              "circle-blur": 0.5,
+            }}
+          />
+          {/* Mid glow ring */}
+          <Layer
+            id="critical-pulse-mid"
+            type="circle"
+            paint={{
+              "circle-radius": [
+                "*",
+                ["get", "radius"],
+                1.0 + eased * 0.6,
+              ],
+              "circle-color": "#ef4444",
+              "circle-opacity": 0.3 - eased * 0.2,
+              "circle-blur": 0.3,
+            }}
+          />
+          {/* Solid inner dot */}
+          <Layer
+            id="critical-circles"
+            type="circle"
+            paint={{
+              "circle-radius": [
+                "case",
+                ["==", ["get", "id"], hoveredId ?? ""],
+                ["+", ["get", "radius"], 4],
+                ["get", "radius"],
+              ],
+              "circle-color": "#ef4444",
+              "circle-opacity": 0.92,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#fca5a5",
+              "circle-stroke-opacity": 0.8,
+            }}
+          />
+        </Source>
       </Map>
 
       {/* Legend */}
@@ -143,6 +231,9 @@ export function IncidentMap({ onSelectIncident }: Props) {
                 style={{ backgroundColor: color }}
               />
               {severity}
+              {severity === "CRITICAL" && (
+                <span className="text-red-400 animate-pulse">●</span>
+              )}
             </div>
           )
         )}
