@@ -4,6 +4,12 @@
 
 Raw sensor events — detections, drone telemetry, RF anomalies — are ingested, normalized, spatially and temporally correlated, scored, and pushed to operators as actionable intelligence incidents in real time via Server-Sent Events.
 
+**Live deployment:**
+| Service | URL |
+|---|---|
+| Operator Dashboard | https://sentinel-fusion-3eujdsj4l-mohamed-homaids-projects.vercel.app |
+| API (health) | https://sentinel-fusion-production-1147.up.railway.app/api/health |
+
 ---
 
 ## Architecture
@@ -59,10 +65,11 @@ Raw sensor events — detections, drone telemetry, RF anomalies — are ingested
 ┌─────────────────────────────────────────────────────────────┐
 │                  OPERATOR DASHBOARD                         │
 │  Next.js · Shadcn UI · Mapbox GL JS                         │
-│  · PipelineStats — 4 live-data cards                        │
-│  · IncidentMap — Mapbox dark map with severity markers      │
-│  · IncidentTable — live SSE feed with severity filter       │
-│  · IncidentDetailPanel — sheet with full source breakdown   │
+│  · Dashboard   — 4 live stat cards + map + incident table   │
+│  · Incidents   — filterable table, severity/status toggles  │
+│  · Event Log   — live SSE stream with pause/resume/clear    │
+│  · Analytics   — 5 Recharts visualizations + 6 KPI pills   │
+│  · IncidentDetailPanel — slide-in sheet, full breakdown     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -277,7 +284,12 @@ sentinel-fusion/
 │
 ├── frontend/                        # Next.js 16 operator dashboard
 │   └── src/
-│       ├── app/dashboard/page.tsx   # Main dashboard (rewired with live data)
+│       ├── app/
+│       │   ├── (ops)/layout.tsx     # Shared sidebar + header layout
+│       │   ├── (ops)/dashboard/     # Live stat cards, map, incident table
+│       │   ├── (ops)/incidents/     # Filterable incident table
+│       │   ├── (ops)/events/        # Live SSE event log (pause/resume)
+│       │   └── (ops)/analytics/     # Charts: timeline, severity, status
 │       ├── components/
 │       │   ├── pipeline-stats.tsx   # 4 live-data stat cards
 │       │   ├── incident-map.tsx     # Mapbox GL dark map with markers
@@ -368,12 +380,11 @@ FUSION_INTERVAL_SECS=30
 3. Set these environment variables in Vercel:
 
 ```
-NEXT_PUBLIC_API_URL=https://sentinel-fusion-api.railway.app
+NEXT_PUBLIC_API_URL=https://sentinel-fusion-production-1147.up.railway.app
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.your_token_here
 ```
 
-4. Update `frontend/vercel.json` — replace `your-railway-app.railway.app` with your actual Railway URL
-5. Deploy — Vercel will use `bun install` + `bun run build` automatically
+4. Deploy — Vercel will use `bun install` + `bun run build` automatically
 
 ### CORS
 

@@ -1,5 +1,5 @@
 # ── Private docs (kept local only) ──────────────────────────────────────────
-docs/
+# docs/  ← re-enabled so social-media.md and other docs are tracked
 
 # ── Rust ─────────────────────────────────────────────────────────────────────
 target/
