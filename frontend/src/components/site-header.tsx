@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -109,6 +110,11 @@ export function SiteHeader() {
             {connected ? "STREAM LIVE" : "CONNECTING"}
           </Badge>
         </div>
+
+        <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-auto" />
+
+        {/* Theme toggle */}
+        <ThemeToggle />
       </div>
     </header>
   );
