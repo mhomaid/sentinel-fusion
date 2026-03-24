@@ -4,7 +4,8 @@ docs/
 # ── Rust ─────────────────────────────────────────────────────────────────────
 target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock is committed for binary applications (ensures reproducible builds on Railway)
+# Only ignore it for pure library crates (none here)
 
 # ── Node / Next.js (Bun) ─────────────────────────────────────────────────────
 node_modules/

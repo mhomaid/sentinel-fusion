@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, Json};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -8,9 +8,6 @@ use db::queries::events::insert_event;
 use ingest::normalizer::normalize;
 
 use crate::state::AppState;
-
-#[derive(Deserialize)]
-pub struct IngestPayload(Value);
 
 #[derive(Serialize)]
 pub struct IngestResponse {
