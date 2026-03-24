@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id,\n            event_type,\n            source_class,\n            ST_Y(location::geometry) AS \"lat!: f64\",\n            ST_X(location::geometry) AS \"lon!: f64\",\n            payload,\n            received_at\n        FROM raw_events\n        WHERE received_at >= $1\n          AND id NOT IN (\n              SELECT UNNEST(event_ids) FROM incidents WHERE status != 'CLOSED'\n          )\n        ORDER BY received_at ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "source_class",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "lat!: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "lon!: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "received_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "e93f23db6dba78a70612b5ba771fdd577f7d4d8ad4b75332a682e31c2ef4c627"
+}

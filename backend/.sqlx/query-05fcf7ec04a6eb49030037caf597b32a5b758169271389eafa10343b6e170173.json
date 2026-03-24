@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE incidents\n        SET status = 'CLOSED', updated_at = now()\n        WHERE status != 'CLOSED'\n          AND last_event_at < $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05fcf7ec04a6eb49030037caf597b32a5b758169271389eafa10343b6e170173"
+}

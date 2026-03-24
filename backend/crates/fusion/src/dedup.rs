@@ -3,26 +3,35 @@ use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use db::models::Incident;
 use db::queries::incidents::{
-    close_stale_incidents, find_open_incident_at_geohash, insert_incident, update_incident,
-    NewIncident,
+    close_stale_incidents, fetch_incident_by_id_required, find_open_incident_at_geohash,
+    insert_incident, update_incident, NewIncident,
 };
 
 use crate::clustering::EventRow;
 use crate::scoring::ClusterScore;
 use crate::templates::{generate_summary, generate_title};
 
-/// Upsert a scored cluster into the incidents table.
+/// Upsert result: the incident UUID and whether it was freshly created.
+pub struct UpsertResult {
+    pub id: Uuid,
+    pub is_new: bool,
+    pub incident: Incident,
+}
+
+/// Upsert a scored cluster into the incidents table and return
+/// the resulting `Incident` row (for SSE broadcast).
 ///
 /// - If an OPEN incident exists at the same geohash within the last 10
-///   minutes, update it in place (append events, recalculate score).
+///   minutes, update it in place.
 /// - Otherwise insert a new incident.
 pub async fn upsert_incident(
     pool: &PgPool,
     geohash: &str,
     events: &[&EventRow],
     score: &ClusterScore,
-) -> Result<Uuid> {
+) -> Result<UpsertResult> {
     let dedup_window = Utc::now() - Duration::minutes(10);
     let existing = find_open_incident_at_geohash(pool, geohash, dedup_window).await?;
 
@@ -49,12 +58,17 @@ pub async fn upsert_incident(
             last_event_at,
         )
         .await?;
-        return Ok(inc.id);
+
+        let updated = fetch_incident_by_id_required(pool, inc.id).await?;
+        return Ok(UpsertResult {
+            id: inc.id,
+            is_new: false,
+            incident: updated,
+        });
     }
 
     let title   = generate_title(events, geohash);
     let summary = generate_summary(events, geohash);
-
     let centroid = centroid(events);
 
     let id = insert_incident(
@@ -77,7 +91,12 @@ pub async fn upsert_incident(
     )
     .await?;
 
-    Ok(id)
+    let created = fetch_incident_by_id_required(pool, id).await?;
+    Ok(UpsertResult {
+        id,
+        is_new: true,
+        incident: created,
+    })
 }
 
 /// Close all incidents that have received no new events for `stale_minutes`.

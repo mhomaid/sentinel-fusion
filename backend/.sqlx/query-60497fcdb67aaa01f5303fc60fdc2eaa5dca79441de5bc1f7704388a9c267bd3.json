@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FROM incidents\n        WHERE ($1::text[]  IS NULL OR severity = ANY($1))\n          AND ($2::text[]  IS NULL OR status   = ANY($2))\n          AND ($3::timestamptz IS NULL OR last_event_at >= $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "60497fcdb67aaa01f5303fc60fdc2eaa5dca79441de5bc1f7704388a9c267bd3"
+}

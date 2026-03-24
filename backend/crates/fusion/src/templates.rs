@@ -62,7 +62,7 @@ pub fn generate_summary(events: &[&EventRow], geohash: &str) -> String {
             .and_then(|v| v.as_f64());
         let src = events.iter()
             .find(|e| e.event_type == "SIGNAL")
-            .map(|e| e.source_id.as_str())
+            .map(|e| e.source_class.as_str())
             .unwrap_or("unknown");
         let freq_str = freq.map_or(String::new(), |f| format!(" on {f:.1} MHz"));
         format!(

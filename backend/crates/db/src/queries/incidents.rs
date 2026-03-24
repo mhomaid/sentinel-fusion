@@ -21,6 +21,14 @@ pub struct NewIncident {
     pub last_event_at: DateTime<Utc>,
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Writes
+// ─────────────────────────────────────────────────────────────────────────────
+
 pub async fn insert_incident(pool: &PgPool, inc: &NewIncident) -> Result<Uuid> {
     let id = sqlx::query_scalar!(
         r#"
@@ -64,12 +72,14 @@ pub async fn find_open_incident_at_geohash(
     geohash: &str,
     since: DateTime<Utc>,
 ) -> Result<Option<Incident>> {
-    let row = sqlx::query_as!(
-        Incident,
+    let row = sqlx::query!(
         r#"
-        SELECT id, title, summary, severity, confidence, status, geohash,
-               event_ids, event_types, source_count, source_diversity,
-               first_event_at, last_event_at, created_at, updated_at
+        SELECT
+            id, title, summary, severity, confidence, status, geohash,
+            ST_Y(location::geometry) AS "lat: f64",
+            ST_X(location::geometry) AS "lon: f64",
+            event_ids, event_types, source_count, source_diversity,
+            first_event_at, last_event_at, created_at, updated_at
         FROM incidents
         WHERE geohash = $1
           AND status != 'CLOSED'
@@ -83,7 +93,25 @@ pub async fn find_open_incident_at_geohash(
     .fetch_optional(pool)
     .await?;
 
-    Ok(row)
+    Ok(row.map(|r| Incident {
+        id:               r.id,
+        title:            r.title,
+        summary:          r.summary,
+        severity:         r.severity,
+        confidence:       r.confidence,
+        status:           r.status,
+        geohash:          r.geohash,
+        lat:              r.lat,
+        lon:              r.lon,
+        event_ids:        r.event_ids,
+        event_types:      r.event_types,
+        source_count:     r.source_count,
+        source_diversity: r.source_diversity,
+        first_event_at:   r.first_event_at,
+        last_event_at:    r.last_event_at,
+        created_at:       r.created_at,
+        updated_at:       r.updated_at,
+    }))
 }
 
 pub async fn update_incident(
@@ -142,6 +170,10 @@ pub async fn close_stale_incidents(pool: &PgPool, stale_before: DateTime<Utc>) -
     Ok(result.rows_affected())
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Reads
+// ─────────────────────────────────────────────────────────────────────────────
+
 pub async fn list_incidents(
     pool: &PgPool,
     severities: Option<&[String]>,
@@ -150,14 +182,14 @@ pub async fn list_incidents(
     limit: i64,
     offset: i64,
 ) -> Result<(Vec<Incident>, i64)> {
-    // Dynamic filtering is implemented with raw SQL; SQLx offline mode
-    // will need queries pre-checked once DATABASE_URL is available.
-    let rows = sqlx::query_as!(
-        Incident,
+    let rows = sqlx::query!(
         r#"
-        SELECT id, title, summary, severity, confidence, status, geohash,
-               event_ids, event_types, source_count, source_diversity,
-               first_event_at, last_event_at, created_at, updated_at
+        SELECT
+            id, title, summary, severity, confidence, status, geohash,
+            ST_Y(location::geometry) AS "lat: f64",
+            ST_X(location::geometry) AS "lon: f64",
+            event_ids, event_types, source_count, source_diversity,
+            first_event_at, last_event_at, created_at, updated_at
         FROM incidents
         WHERE ($1::text[]  IS NULL OR severity = ANY($1))
           AND ($2::text[]  IS NULL OR status   = ANY($2))
@@ -174,6 +206,29 @@ pub async fn list_incidents(
     .fetch_all(pool)
     .await?;
 
+    let incidents: Vec<Incident> = rows
+        .into_iter()
+        .map(|r| Incident {
+            id:               r.id,
+            title:            r.title,
+            summary:          r.summary,
+            severity:         r.severity,
+            confidence:       r.confidence,
+            status:           r.status,
+            geohash:          r.geohash,
+            lat:              r.lat,
+            lon:              r.lon,
+            event_ids:        r.event_ids,
+            event_types:      r.event_types,
+            source_count:     r.source_count,
+            source_diversity: r.source_diversity,
+            first_event_at:   r.first_event_at,
+            last_event_at:    r.last_event_at,
+            created_at:       r.created_at,
+            updated_at:       r.updated_at,
+        })
+        .collect();
+
     let total = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) FROM incidents
@@ -189,16 +244,18 @@ pub async fn list_incidents(
     .await?
     .unwrap_or(0);
 
-    Ok((rows, total))
+    Ok((incidents, total))
 }
 
 pub async fn get_incident_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Incident>> {
-    let row = sqlx::query_as!(
-        Incident,
+    let row = sqlx::query!(
         r#"
-        SELECT id, title, summary, severity, confidence, status, geohash,
-               event_ids, event_types, source_count, source_diversity,
-               first_event_at, last_event_at, created_at, updated_at
+        SELECT
+            id, title, summary, severity, confidence, status, geohash,
+            ST_Y(location::geometry) AS "lat: f64",
+            ST_X(location::geometry) AS "lon: f64",
+            event_ids, event_types, source_count, source_diversity,
+            first_event_at, last_event_at, created_at, updated_at
         FROM incidents WHERE id = $1
         "#,
         id,
@@ -206,7 +263,25 @@ pub async fn get_incident_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Incide
     .fetch_optional(pool)
     .await?;
 
-    Ok(row)
+    Ok(row.map(|r| Incident {
+        id:               r.id,
+        title:            r.title,
+        summary:          r.summary,
+        severity:         r.severity,
+        confidence:       r.confidence,
+        status:           r.status,
+        geohash:          r.geohash,
+        lat:              r.lat,
+        lon:              r.lon,
+        event_ids:        r.event_ids,
+        event_types:      r.event_types,
+        source_count:     r.source_count,
+        source_diversity: r.source_diversity,
+        first_event_at:   r.first_event_at,
+        last_event_at:    r.last_event_at,
+        created_at:       r.created_at,
+        updated_at:       r.updated_at,
+    }))
 }
 
 pub async fn count_open_incidents(pool: &PgPool) -> Result<i64> {
@@ -225,4 +300,11 @@ pub async fn count_critical_incidents(pool: &PgPool) -> Result<i64> {
     .fetch_one(pool)
     .await?
     .unwrap_or(0))
+}
+
+/// Fetch the full Incident row after an INSERT or UPDATE (used for SSE broadcast).
+pub async fn fetch_incident_by_id_required(pool: &PgPool, id: Uuid) -> Result<Incident> {
+    get_incident_by_id(pool, id)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("incident {id} not found after write"))
 }

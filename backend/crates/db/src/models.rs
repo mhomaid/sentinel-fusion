@@ -24,6 +24,10 @@ pub struct Incident {
     pub confidence: f64,
     pub status: String,
     pub geohash: String,
+    /// Latitude extracted from PostGIS geometry at query time.
+    pub lat: Option<f64>,
+    /// Longitude extracted from PostGIS geometry at query time.
+    pub lon: Option<f64>,
     pub event_ids: Vec<Uuid>,
     pub event_types: Vec<String>,
     pub source_count: i32,
