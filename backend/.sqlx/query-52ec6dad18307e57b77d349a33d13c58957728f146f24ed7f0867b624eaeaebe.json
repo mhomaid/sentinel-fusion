@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FROM incidents WHERE severity = 'CRITICAL' AND status != 'CLOSED'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "52ec6dad18307e57b77d349a33d13c58957728f146f24ed7f0867b624eaeaebe"
+}

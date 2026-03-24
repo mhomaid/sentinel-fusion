@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE incidents SET\n            severity         = $2,\n            confidence       = $3,\n            status           = 'UPDATING',\n            event_ids        = event_ids || $4,\n            event_types      = event_types || $5,\n            source_count     = $6,\n            source_diversity = $7,\n            last_event_at    = $8,\n            updated_at       = now()\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Float8",
+        "UuidArray",
+        "TextArray",
+        "Int4",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8006881e7675ebba7279a537a70e400fc23942d4971450a2ce6de0b9a0228e2d"
+}

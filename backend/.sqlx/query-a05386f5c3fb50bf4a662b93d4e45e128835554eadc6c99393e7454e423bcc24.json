@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO incidents (\n            title, summary, severity, confidence, status,\n            location, geohash,\n            event_ids, event_types,\n            source_count, source_diversity,\n            first_event_at, last_event_at\n        ) VALUES (\n            $1, $2, $3, $4, 'OPEN',\n            ST_SetSRID(ST_MakePoint($5, $6), 4326), $7,\n            $8, $9,\n            $10, $11,\n            $12, $13\n        )\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Text",
+        "UuidArray",
+        "TextArray",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a05386f5c3fb50bf4a662b93d4e45e128835554eadc6c99393e7454e423bcc24"
+}
