@@ -28,13 +28,40 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    // Log every unhandled panic so Railway captures it even if the process exits immediately.
+    std::panic::set_hook(Box::new(|info| {
+        let msg = info.payload().downcast_ref::<&str>().copied()
+            .or_else(|| info.payload().downcast_ref::<String>().map(|s| s.as_str()))
+            .unwrap_or("unknown panic payload");
+        let loc = info.location().map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        eprintln!("PANIC at {loc}: {msg}");
+    }));
+
+    tracing::info!("sentinel-fusion starting up");
+
+    let database_url = match std::env::var("DATABASE_URL") {
+        Ok(v) => v,
+        Err(_) => {
+            tracing::error!("DATABASE_URL environment variable is not set — aborting");
+            std::process::exit(1);
+        }
+    };
+
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
-        .expect("PORT must be a valid u16");
+        .unwrap_or(8080);
 
-    let pool = db::connect(&database_url)?;
+    tracing::info!(port, "config loaded — DATABASE_URL present");
+
+    let pool = match db::connect(&database_url) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(error = %e, "failed to create database pool — aborting");
+            std::process::exit(1);
+        }
+    };
     tracing::info!("database pool initialised (lazy connect)");
 
     // ── SSE broadcast channel ────────────────────────────────────────────────
@@ -153,7 +180,13 @@ async fn main() -> Result<()> {
         .layer(CorsLayer::permissive())
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+    let listener = match tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!(port, error = %e, "failed to bind TCP listener — aborting");
+            std::process::exit(1);
+        }
+    };
     tracing::info!(port, "sentinel-fusion API listening");
     axum::serve(listener, app).await?;
 
