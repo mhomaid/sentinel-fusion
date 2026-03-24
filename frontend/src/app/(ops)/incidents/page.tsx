@@ -220,7 +220,7 @@ export default function IncidentsPage() {
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">Location</TableHead>
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">First seen</TableHead>
                 <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500">Last event</TableHead>
-                <TableHead className="w-8" />
+                <TableHead className="text-[11px] tracking-widest uppercase text-zinc-500 w-20">Detail</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -272,8 +272,12 @@ export default function IncidentsPage() {
                     {formatDistanceToNow(new Date(inc.last_event_at), { addSuffix: true })}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Link href={`/incidents/${inc.id}`}>
-                      <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-600 hover:text-cyan-400 transition-colors" />
+                    <Link
+                      href={`/incidents/${inc.id}`}
+                      className="flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-[10px] text-zinc-300 hover:border-cyan-500/50 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors whitespace-nowrap"
+                    >
+                      <ExternalLinkIcon className="h-2.5 w-2.5" />
+                      Details
                     </Link>
                   </TableCell>
                 </TableRow>
