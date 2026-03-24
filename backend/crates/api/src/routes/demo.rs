@@ -57,9 +57,16 @@ pub async fn start(
 
 /// Injects one burst event for every sensor class in every zone.
 pub async fn inject_burst(pool: &sqlx::PgPool, zones: &[(&str, f64, f64, f64)]) {
-    for (name, lat, lon, jitter) in zones {
-        let clat = lat + rand_jitter(*jitter * 0.4);
-        let clon = lon + rand_jitter(*jitter * 0.4);
+    for (name, lat, lon, _jitter) in zones {
+        // Cluster centre — small offset so successive demo calls land in
+        // slightly different spots within the same city, but well inside
+        // a single geohash-7 cell (≈153m × 153m).
+        let clat = lat + rand_jitter(0.0008);
+        let clon = lon + rand_jitter(0.0008);
+
+        // Per-event micro-jitter keeps each sensor reading distinct while
+        // staying inside the same geohash cell (≤0.0004° ≈ 44m).
+        const MICRO: f64 = 0.0004;
 
         let events = vec![
             // DRONE telemetry
@@ -67,8 +74,8 @@ pub async fn inject_burst(pool: &sqlx::PgPool, zones: &[(&str, f64, f64, f64)]) 
                 EventType::Telemetry,
                 format!("sentinel-{:02}", pseudo_rand(1, 12, *lat)),
                 SourceClass::Drone,
-                clat + rand_jitter(*jitter),
-                clon + rand_jitter(*jitter),
+                clat + rand_jitter(MICRO),
+                clon + rand_jitter(MICRO),
                 json!({
                     "drone_id": format!("sentinel-{:02}", pseudo_rand(1, 12, *lat)),
                     "altitude_m": pseudo_rand(30, 300, *lon),
@@ -83,8 +90,8 @@ pub async fn inject_burst(pool: &sqlx::PgPool, zones: &[(&str, f64, f64, f64)]) 
                 EventType::Detection,
                 format!("cam-{:02}", pseudo_rand(1, 20, *lon)),
                 SourceClass::Camera,
-                clat + rand_jitter(*jitter),
-                clon + rand_jitter(*jitter),
+                clat + rand_jitter(MICRO),
+                clon + rand_jitter(MICRO),
                 json!({
                     "source": format!("cam-{:02}", pseudo_rand(1, 20, *lon)),
                     "objects": [{"class": "drone", "confidence": 0.91, "speed_kmh": 32}],
@@ -96,8 +103,8 @@ pub async fn inject_burst(pool: &sqlx::PgPool, zones: &[(&str, f64, f64, f64)]) 
                 EventType::Signal,
                 format!("rf-{:02}", pseudo_rand(1, 8, *lat + *lon)),
                 SourceClass::RfSensor,
-                clat + rand_jitter(*jitter),
-                clon + rand_jitter(*jitter),
+                clat + rand_jitter(MICRO),
+                clon + rand_jitter(MICRO),
                 json!({
                     "sensor_id": format!("rf-{:02}", pseudo_rand(1, 8, *lat + *lon)),
                     "frequency_mhz": 915.0,
@@ -112,8 +119,8 @@ pub async fn inject_burst(pool: &sqlx::PgPool, zones: &[(&str, f64, f64, f64)]) 
                 EventType::Detection,
                 format!("radar-{:02}", pseudo_rand(1, 4, *lon)),
                 SourceClass::Radar,
-                clat + rand_jitter(*jitter),
-                clon + rand_jitter(*jitter),
+                clat + rand_jitter(MICRO),
+                clon + rand_jitter(MICRO),
                 json!({
                     "radar_id": format!("radar-{:02}", pseudo_rand(1, 4, *lon)),
                     "track_id": format!("TRK-{}", pseudo_rand(1000, 9999, *lat * *lon)),
