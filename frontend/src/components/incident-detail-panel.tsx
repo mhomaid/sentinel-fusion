@@ -160,8 +160,8 @@ export function IncidentDetailPanel({ incidentId, open, onOpenChange }: Props) {
                 Contributing sensor types
               </p>
               <div className="flex flex-wrap gap-1">
-                {incident.event_types.map((t) => (
-                  <Badge key={t} variant="outline" className="text-xs">
+                {incident.event_types.map((t, i) => (
+                  <Badge key={`${t}-${i}`} variant="outline" className="text-xs">
                     {t}
                   </Badge>
                 ))}
