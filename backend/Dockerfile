@@ -10,11 +10,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Cache dependencies before copying source
-COPY Cargo.toml Cargo.lock ./
-COPY crates/api/Cargo.toml     crates/api/Cargo.toml
-COPY crates/db/Cargo.toml      crates/db/Cargo.toml
-COPY crates/fusion/Cargo.toml  crates/fusion/Cargo.toml
-COPY crates/ingest/Cargo.toml  crates/ingest/Cargo.toml
+# NOTE: build context is the repo root (set by railway.toml), so all source
+# paths are prefixed with backend/
+COPY backend/Cargo.toml backend/Cargo.lock ./
+COPY backend/crates/api/Cargo.toml     crates/api/Cargo.toml
+COPY backend/crates/db/Cargo.toml      crates/db/Cargo.toml
+COPY backend/crates/fusion/Cargo.toml  crates/fusion/Cargo.toml
+COPY backend/crates/ingest/Cargo.toml  crates/ingest/Cargo.toml
 
 # Stub src files so cargo can resolve the workspace
 RUN mkdir -p crates/api/src crates/db/src crates/fusion/src crates/ingest/src \
@@ -29,8 +31,8 @@ RUN cargo build --release --bin api 2>/dev/null || true
 RUN rm -rf crates/*/src
 
 # Copy real source + sqlx query cache
-COPY crates ./crates
-COPY .sqlx ./.sqlx
+COPY backend/crates ./crates
+COPY backend/.sqlx ./.sqlx
 
 # Build the final binary
 RUN cargo build --release --bin api
