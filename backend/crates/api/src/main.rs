@@ -1,4 +1,5 @@
 mod middleware;
+mod opensky;
 mod routes;
 mod sse;
 mod state;
@@ -148,6 +149,14 @@ async fn main() -> Result<()> {
                 routes::demo::inject_random_zone(&seed_pool).await;
                 tracing::info!("auto-seed: zone refreshed");
             }
+        });
+    }
+
+    // ── OpenSky live aircraft feed ───────────────────────────────────────────
+    {
+        let opensky_pool = pool.clone();
+        tokio::spawn(async move {
+            opensky::run_poller(opensky_pool).await;
         });
     }
 
