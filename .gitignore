@@ -36,4 +36,5 @@ Thumbs.db
 
 # ── Docker volumes ───────────────────────────────────────────────────────────
 postgres_data/
-docs/*
+docs/*.md
+docs/*.json

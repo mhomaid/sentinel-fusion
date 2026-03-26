@@ -161,8 +161,8 @@ What I built:
   • Analytics — pipeline throughput, severity distribution, sensor
     type coverage, confidence histogram
 
-Simulated across 27 GCC locations: Saudi Arabia (10 zones including
-Riyadh, Jeddah, Mecca, Madinah, Dammam), UAE (5), Qatar (5 including
+Simulated across 27 Cities GCC locations: Saudi Arabia (10 zones including
+Riyadh, Jeddah, Dammam, Tabuk, NEOM), UAE (5), Qatar (5 including
 Doha and Lusail), Kuwait (3), Bahrain (2), Oman (2).
 
 Tech: Rust · Axum · Tokio · SQLx · PostgreSQL + PostGIS · Next.js 16  
@@ -173,11 +173,14 @@ embedded targets, the correlation logic can move onto drone/sensor
 nodes at production density.
 
 Live demo: https://sentinel-fusion-pro.vercel.app  
-Open source: https://github.com/mhomaid/sentinel-fusion
 
 This is the infrastructure layer that autonomous defense systems
 actually need. Happy to talk through the architecture with anyone
 working in this space.
+
+#RustLang #DefenseTech #AutonomousSystems #DroneDetection
+#MachineLearning #RealTimeData #SaudiArabia #GCC #Vision2030
+#SoftwareEngineering #OpenSource #BuildInPublic
 ```
 
 ---
