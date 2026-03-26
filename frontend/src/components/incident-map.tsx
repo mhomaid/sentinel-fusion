@@ -12,6 +12,61 @@ import type { GeoJSON } from "geojson";
 import { useIncidents } from "@/hooks/useIncidents";
 import type { Incident, Severity } from "@/types/incident";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+interface LiveAircraft {
+  icao24: string;
+  callsign: string | null;
+  origin_country: string;
+  lat: number;
+  lon: number;
+  altitude_m: number;
+  speed_ms: number;
+  heading_deg: number;
+  on_ground: boolean;
+}
+
+function aircraftToGeoJson(aircraft: LiveAircraft[]): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: aircraft
+      .filter((a) => !a.on_ground)
+      .map((a) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [a.lon, a.lat] },
+        properties: {
+          icao24:         a.icao24,
+          callsign:       a.callsign ?? a.icao24,
+          origin_country: a.origin_country,
+          altitude_m:     Math.round(a.altitude_m),
+          speed_kmh:      Math.round(a.speed_ms * 3.6),
+          heading_deg:    a.heading_deg,
+        },
+      })),
+  };
+}
+
+function useAircraft(enabled: boolean) {
+  const [aircraft, setAircraft] = useState<LiveAircraft[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await fetch(`${API_BASE}/api/aircraft/live`);
+        if (res.ok && !cancelled) {
+          const data: LiveAircraft[] = await res.json();
+          setAircraft(data.filter((a) => !a.on_ground));
+        }
+      } catch { /* silently ignore */ }
+    }
+    poll();
+    const id = setInterval(poll, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [enabled]);
+  return aircraft;
+}
+
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
 const SEVERITY_COLOR: Record<Severity, string> = {
@@ -75,6 +130,9 @@ export function IncidentMap({ onSelectIncident }: Props) {
   const mapRef = useRef<MapRef>(null);
   const { incidents } = useIncidents();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [showAircraft, setShowAircraft] = useState(true);
+  const aircraft = useAircraft(showAircraft);
+  const aircraftGeoJson = aircraftToGeoJson(aircraft);
 
   // Pulse animation state — oscillates between 0 and 1 on a 1.2s cycle.
   const [pulsePhase, setPulsePhase] = useState(0);
@@ -219,7 +277,76 @@ export function IncidentMap({ onSelectIncident }: Props) {
             }}
           />
         </Source>
+
+        {/* ── Live aircraft (OpenSky ADS-B) ───────────────────────── */}
+        {showAircraft && (
+          <Source id="aircraft-live" type="geojson" data={aircraftGeoJson}>
+            {/* Glow halo */}
+            <Layer
+              id="aircraft-halo"
+              type="circle"
+              paint={{
+                "circle-radius": 10,
+                "circle-color": "#22d3ee",
+                "circle-opacity": 0.12,
+                "circle-blur": 1,
+              }}
+            />
+            {/* Plane symbol rotated by heading */}
+            <Layer
+              id="aircraft-symbol"
+              type="symbol"
+              layout={{
+                "text-field": "✈",
+                "text-size": 13,
+                "text-rotate": ["get", "heading_deg"],
+                "text-rotation-alignment": "map",
+                "text-allow-overlap": true,
+                "text-ignore-placement": true,
+              }}
+              paint={{
+                "text-color": "#22d3ee",
+                "text-halo-color": "#000000",
+                "text-halo-width": 1,
+              }}
+            />
+            {/* Callsign label */}
+            <Layer
+              id="aircraft-label"
+              type="symbol"
+              layout={{
+                "text-field": ["get", "callsign"],
+                "text-size": 8,
+                "text-offset": [0, 1.4],
+                "text-anchor": "top",
+                "text-allow-overlap": false,
+              }}
+              paint={{
+                "text-color": "#67e8f9",
+                "text-halo-color": "#000000",
+                "text-halo-width": 1,
+              }}
+            />
+          </Source>
+        )}
       </Map>
+
+      {/* Aircraft toggle + count */}
+      <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+        <button
+          onClick={() => setShowAircraft((v) => !v)}
+          className={`flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] tracking-wider uppercase backdrop-blur transition-colors ${
+            showAircraft
+              ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
+              : "border-zinc-700 bg-zinc-900/80 text-zinc-500"
+          }`}
+        >
+          <span>✈</span>
+          {showAircraft
+            ? `${aircraft.length} aircraft live`
+            : "ADS-B off"}
+        </button>
+      </div>
 
       {/* Legend */}
       <div className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-md bg-background/80 p-2 text-xs backdrop-blur">

@@ -153,10 +153,12 @@ async fn main() -> Result<()> {
     }
 
     // ── OpenSky live aircraft feed ───────────────────────────────────────────
+    let aircraft_cache = opensky::new_cache();
     {
-        let opensky_pool = pool.clone();
+        let opensky_pool  = pool.clone();
+        let opensky_cache = aircraft_cache.clone();
         tokio::spawn(async move {
-            opensky::run_poller(opensky_pool).await;
+            opensky::run_poller(opensky_pool, opensky_cache).await;
         });
     }
 
@@ -195,7 +197,7 @@ async fn main() -> Result<()> {
     }
 
     // ── App state + router ───────────────────────────────────────────────────
-    let state = AppState::new(pool, fusion_metrics, sse_tx);
+    let state = AppState::new(pool, fusion_metrics, sse_tx, aircraft_cache);
 
     let app = Router::new()
         .route("/api/health",        get(routes::health::handler))
@@ -205,6 +207,7 @@ async fn main() -> Result<()> {
         .route("/api/incidents",     get(routes::incidents::list))
         .route("/api/incidents/:id",        get(routes::incidents::get_by_id))
         .route("/api/incidents/:id/events", get(routes::incidents::get_incident_events))
+        .route("/api/aircraft/live", get(routes::aircraft::live))
         .route("/api/stream",        get(routes::stream::handler))
         .layer(axum_middleware::from_fn(middleware::metrics::track))
         .layer(CorsLayer::permissive())
