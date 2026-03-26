@@ -137,13 +137,16 @@ export default function IncidentDetailPage() {
   const rp = radarEvent?.payload ?? {};
   const rfp = rfEvent?.payload ?? {};
 
-  const speedMs    = num(dp.speed_ms);
-  const speedKmh   = speedMs !== null ? (speedMs * 3.6).toFixed(1) : null;
-  const altitudeM  = num(dp.altitude_m);
-  const headingDeg = num(dp.heading_deg);
-  const batteryPct = num(dp.battery_pct);
-  const droneId    = str(dp.drone_id);
-  const zone       = str(dp.zone);
+  const speedMs      = num(dp.speed_ms);
+  const speedKmh     = speedMs !== null ? (speedMs * 3.6).toFixed(1) : null;
+  const altitudeM    = num(dp.altitude_m);
+  const headingDeg   = num(dp.heading_deg);
+  const batteryPct   = num(dp.battery_pct);
+  const droneId      = str(dp.drone_id);
+  const zone         = str(dp.zone);
+  const isLiveAdsb   = str(dp.source) === "opensky";
+  const icao24       = str(dp.icao24);
+  const originCountry = str(dp.origin_country);
 
   const radarSpeed   = num(rp.speed_knots);
   const radarAlt     = num(rp.altitude_ft);
@@ -220,10 +223,12 @@ export default function IncidentDetailPage() {
               {statusIcon}
               <span>{incident.status}</span>
             </div>
-            {zone && (
+            {(zone || originCountry) && (
               <div className="flex items-center gap-1">
                 <MapPinIcon className="h-3 w-3" />
-                <span className="uppercase">{zone.replace(/_/g, " ")}</span>
+                <span className="uppercase">
+                  {originCountry ?? zone?.replace(/_/g, " ")}
+                </span>
               </div>
             )}
             <div className="flex items-center gap-1">
@@ -246,9 +251,24 @@ export default function IncidentDetailPage() {
           <IncidentDetailMap incident={incident} events={events} />
           {/* Map overlay: drone ID badge */}
           {droneId && (
-            <div className="absolute left-6 top-6 rounded-md bg-zinc-950/90 border border-cyan-500/30 px-2.5 py-1.5 backdrop-blur-sm">
-              <p className="text-[9px] tracking-widest text-zinc-500 uppercase">Asset</p>
+            <div className="absolute left-6 top-6 rounded-md bg-zinc-950/90 border border-cyan-500/30 px-2.5 py-1.5 backdrop-blur-sm space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[9px] tracking-widest text-zinc-500 uppercase">
+                  {isLiveAdsb ? "Callsign" : "Asset"}
+                </p>
+                {isLiveAdsb && (
+                  <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-1 text-[8px] tracking-wider text-cyan-400 uppercase">
+                    ADS-B
+                  </span>
+                )}
+              </div>
               <p className="text-xs font-bold text-cyan-400">{droneId}</p>
+              {icao24 && (
+                <p className="text-[9px] font-mono text-zinc-500">ICAO: {icao24.toUpperCase()}</p>
+              )}
+              {originCountry && (
+                <p className="text-[9px] text-zinc-500">{originCountry}</p>
+              )}
             </div>
           )}
         </div>
@@ -298,7 +318,13 @@ export default function IncidentDetailPage() {
           {droneEvent && (
             <section className="shrink-0 border-b border-zinc-800/40 px-4 py-4 space-y-2.5">
               <p className="text-[10px] tracking-widest text-cyan-500 uppercase flex items-center gap-1.5">
-                <SatelliteIcon className="h-3 w-3" /> Live Drone Telemetry
+                <SatelliteIcon className="h-3 w-3" />
+                {isLiveAdsb ? "Live ADS-B Telemetry" : "Live Drone Telemetry"}
+                {isLiveAdsb && (
+                  <span className="ml-auto rounded border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[8px] tracking-wider text-cyan-400">
+                    REAL DATA
+                  </span>
+                )}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <TelemetryCell label="Speed" value={speedKmh} unit="km/h" />
@@ -307,8 +333,17 @@ export default function IncidentDetailPage() {
                   label="Heading"
                   value={headingDeg !== null ? `${headingDeg}° ${compassDir(headingDeg)}` : null}
                 />
-                <TelemetryCell label="Battery" value={batteryPct} unit="%" />
+                {isLiveAdsb
+                  ? <TelemetryCell label="ICAO24" value={icao24 ? icao24.toUpperCase() : null} />
+                  : <TelemetryCell label="Battery" value={batteryPct} unit="%" />
+                }
               </div>
+              {isLiveAdsb && originCountry && (
+                <div className="rounded border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+                  <span className="text-[9px] tracking-widest text-cyan-600 uppercase">Origin</span>
+                  <p className="text-xs font-mono text-cyan-300 mt-0.5">{originCountry}</p>
+                </div>
+              )}
             </section>
           )}
 
@@ -405,6 +440,11 @@ export default function IncidentDetailPage() {
                         >
                           {ev.source_class.replace("_", " ")}
                         </Badge>
+                        {(ev.payload as Record<string, unknown>).source === "opensky" && (
+                          <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-1 text-[8px] tracking-wider text-cyan-400 uppercase">
+                            ADS-B
+                          </span>
+                        )}
                         <span className="text-[10px] font-mono text-zinc-400 truncate">{ev.source_id}</span>
                         <span className="ml-auto text-[9px] tabular-nums text-zinc-600 shrink-0">
                           {format(new Date(ev.received_at), "HH:mm:ss.SSS")}

@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SatelliteIcon } from "lucide-react";
 
 const ROUTE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -87,6 +88,19 @@ export function SiteHeader() {
 
         {/* Live clock */}
         <LiveClock />
+
+        <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-auto" />
+
+        {/* ADS-B live feed badge */}
+        <div className="flex items-center gap-1.5">
+          <SatelliteIcon className="h-3 w-3 text-cyan-400" />
+          <Badge
+            variant="outline"
+            className="h-5 px-2 font-mono text-[10px] tracking-wider border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
+          >
+            ADS-B LIVE
+          </Badge>
+        </div>
 
         <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-auto" />
 
