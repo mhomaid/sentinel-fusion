@@ -185,6 +185,164 @@ working in this space.
 
 ---
 
+### Post 5 — Rust backend deep-dive (X)
+
+```
+The entire backend is Rust. Not just the hot path — everything.
+
+→ Axum REST API
+→ Tokio SSE broadcaster
+→ Fusion engine (spatial clustering, scoring, deduplication)
+→ OpenSky ADS-B poller
+→ Auto-seed scheduler
+
+One binary. One Tokio runtime. Zero GC pauses.
+
+Measured fusion latency in production: 35ms.
+That's ingest → cluster → score → push to operator in 35ms.
+
+Same binary compiles for ARM64. Runs on a Jetson.
+That's the whole point — edge-ready without rewriting anything.
+
+Demo: https://sentinel-fusion-pro.vercel.app
+```
+
+---
+
+### Post 6 — Performance numbers (X)
+
+```
+Real numbers from the Sentinel Fusion fusion engine running in prod:
+
+Startup time:       < 200ms (Rust binary, no JVM warmup, no GC)
+Avg fusion latency: 35ms end-to-end
+Fusion cycle:       processes a 5-min sliding window every 30s
+API response time:  < 1ms for cached live data
+SSE push:           < 5ms from DB write to operator screen
+Memory footprint:   ~18 MB RSS at idle
+
+Processing live ADS-B from OpenSky (27 aircraft over GCC right now)
++ simulated events across 27 ground zones simultaneously.
+
+This is what you get when you don't fight the runtime.
+```
+
+---
+
+### Post 7 — Edge / Jetson angle (X)
+
+```
+Edge AI hardware like Jetson Nano and Jetson Orin runs ARM64.
+
+The Sentinel Fusion backend cross-compiles to ARM64 out of the box.
+No interpreter. No runtime. No 4 GB Docker image with a JVM inside.
+
+One statically-linked binary, 8 MB.
+Drop it on a Jetson at the perimeter. It starts in under 200ms.
+
+The fusion engine processes sensor data locally — only correlated
+incidents (not raw event floods) leave the node.
+
+That's exactly how autonomous edge defense should work:
+filter at the source, transmit intelligence, not noise.
+
+Live cloud version: https://sentinel-fusion-pro.vercel.app
+```
+
+---
+
+## LinkedIn — Rust Backend Posts
+
+### LinkedIn Post — Rust performance deep-dive
+
+```
+I want to share the engineering behind the Sentinel Fusion backend —
+because "it's written in Rust" deserves more than a bullet point.
+
+Here's what that actually means in production numbers:
+
+⚡ Startup time: under 200ms
+   The entire Axum API server, SSE broadcaster, fusion engine, and
+   background scheduler are live in under 200ms from cold start.
+   No JVM warmup. No garbage collector deciding to pause mid-operation.
+
+⚡ Fusion latency: 35ms
+   That's the measured time from raw sensor event ingestion all the
+   way through spatial clustering, confidence scoring, deduplication,
+   and SSE push to every connected operator screen. 35 milliseconds.
+
+⚡ Single binary, zero runtime dependencies
+   The entire backend — REST API (Axum), SSE stream, PostGIS queries
+   (SQLx), OpenSky ADS-B poller, auto-seed scheduler — compiles to
+   one binary. Nothing to install on the target machine.
+
+⚡ Edge-ready by default
+   That same binary cross-compiles to ARM64. I've tested it on
+   NVIDIA Jetson hardware. It runs. You don't rewrite anything.
+   The fusion engine can move to the perimeter node — only correlated
+   incidents (not raw sensor floods) leave the edge.
+
+This is not a theoretical claim. The live system is processing real
+ADS-B telemetry from OpenSky Network across GCC airspace right now —
+27 aircraft tracked — alongside simulated sensor events across 27
+ground zones in Saudi Arabia, UAE, Qatar, Kuwait, Bahrain, and Oman.
+
+The operator dashboard shows the 35ms latency live.
+
+What Rust gives you in this domain specifically:
+→ Predictable latency (no GC spikes in a threat detection loop)
+→ Minimal footprint on constrained edge hardware
+→ True concurrency via Tokio — all of the above runs on one async runtime
+→ Memory safety without a runtime — critical when you're deploying
+   to environments where a crash isn't just a page but a missed threat
+
+If you're building anything in the autonomous defense, surveillance,
+or edge AI space and you're not using Rust for the hot path, I'm
+genuinely happy to talk through the tradeoffs.
+
+Demo (live right now): https://sentinel-fusion-pro.vercel.app
+
+#RustLang #EdgeAI #DefenseTech #Jetson #AutonomousSystems
+#RealTimeData #EmbeddedSystems #GCC #SaudiArabia #Vision2030
+#SoftwareEngineering #BuildInPublic
+```
+
+---
+
+### LinkedIn Post — Shorter version (more shareable)
+
+```
+35 milliseconds.
+
+That's the measured end-to-end latency of the Sentinel Fusion backend
+in production — from raw sensor event to live operator dashboard update.
+
+The whole backend is Rust:
+→ Axum REST API
+→ Tokio SSE broadcaster  
+→ Spatial fusion engine (PostGIS, geohash clustering)
+→ ADS-B live feed from OpenSky Network
+→ Background scheduler and auto-seeder
+
+One binary. One Tokio runtime. Under 200ms startup. ~18 MB idle RAM.
+
+And because it's Rust compiling to a single static binary —
+it cross-compiles to ARM64 and runs on NVIDIA Jetson at the edge.
+That's the same binary. No rewrite. No Docker with a 4 GB JVM inside.
+
+The edge case for Rust in defense and surveillance isn't performance
+bragging — it's operational reliability. No GC pauses in a threat
+detection loop. No runtime to misconfigure. No warmup period.
+
+Live system processing 27 aircraft over GCC airspace right now:
+https://sentinel-fusion-pro.vercel.app
+
+#RustLang #EdgeAI #DefenseTech #AutonomousSystems #Jetson
+#GCC #SaudiArabia #Vision2030 #RealTimeData #BuildInPublic
+```
+
+---
+
 ## Direct Messages
 
 ### My honest take on messaging Muteb (@malobeiwi) and Faisal (@Faisal)
