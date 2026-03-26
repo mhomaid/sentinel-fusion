@@ -42,4 +42,4 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 dotenvy     = "0.15"
 
 # HTTP client (OpenSky feed)
-reqwest     = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+reqwest     = { version = "0.12", features = ["json", "native-tls"] }
