@@ -46,36 +46,6 @@ function aircraftToGeoJson(aircraft: LiveAircraft[]): GeoJSON.FeatureCollection 
   };
 }
 
-const OPENSKY_CLIENT_ID     = process.env.NEXT_PUBLIC_OPENSKY_CLIENT_ID ?? "";
-const OPENSKY_CLIENT_SECRET = process.env.NEXT_PUBLIC_OPENSKY_CLIENT_SECRET ?? "";
-const OPENSKY_TOKEN_URL     = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
-const OPENSKY_STATES_URL    = "https://opensky-network.org/api/states/all?lamin=15&lomin=35&lamax=32&lomax=60";
-
-// Token cache — module-level so it survives re-renders
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
-
-async function getToken(): Promise<string | null> {
-  if (cachedToken && Date.now() < tokenExpiresAt) return cachedToken;
-  if (!OPENSKY_CLIENT_ID || !OPENSKY_CLIENT_SECRET) return null;
-  try {
-    const res = await fetch(OPENSKY_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: OPENSKY_CLIENT_ID,
-        client_secret: OPENSKY_CLIENT_SECRET,
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    cachedToken = data.access_token as string;
-    tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000;
-    return cachedToken;
-  } catch { return null; }
-}
-
 function useAircraft(enabled: boolean) {
   const [aircraft, setAircraft] = useState<LiveAircraft[]>([]);
   useEffect(() => {
@@ -83,41 +53,14 @@ function useAircraft(enabled: boolean) {
     let cancelled = false;
     async function poll() {
       try {
-        const token = await getToken();
-        if (!token || cancelled) return;
-        const res = await fetch(OPENSKY_STATES_URL, {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
+        const res = await fetch("/api/aircraft");
         if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const states: unknown[] = data.states ?? [];
-        const parsed: LiveAircraft[] = states
-          .map((s) => {
-            const arr = s as unknown[];
-            const lon = arr[5] as number | null;
-            const lat = arr[6] as number | null;
-            if (lon == null || lat == null) return null;
-            const onGround = arr[8] as boolean;
-            if (onGround) return null;
-            const icao24 = (arr[0] as string) ?? "";
-            const cs = ((arr[1] as string) ?? "").trim();
-            return {
-              icao24,
-              callsign: cs || null,
-              origin_country: (arr[2] as string) ?? "",
-              lat, lon,
-              altitude_m:  (arr[7] as number) ?? 0,
-              speed_ms:    (arr[9] as number) ?? 0,
-              heading_deg: (arr[10] as number) ?? 0,
-              on_ground: false,
-            } as LiveAircraft;
-          })
-          .filter(Boolean) as LiveAircraft[];
-        if (!cancelled) setAircraft(parsed);
+        const data: LiveAircraft[] = await res.json();
+        if (!cancelled) setAircraft(data);
       } catch { /* silently ignore */ }
     }
     poll();
-    const id = setInterval(poll, 120_000); // 120s = safe within credit budget
+    const id = setInterval(poll, 120_000);
     return () => { cancelled = true; clearInterval(id); };
   }, [enabled]);
   return aircraft;
